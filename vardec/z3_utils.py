@@ -46,6 +46,27 @@ def is_sat(psi):
     return not is_unsat(psi)
 
 
+def fixes_var(psi, var):
+
+    s = z3.Solver()
+    s.add(psi)
+
+    s.check()
+
+    model = s.model()
+
+    # print(model)
+    # print(model[var])
+
+    if model[var] is None:
+        print("WARN: variable is not in the model")
+        return False
+
+    # print(z3.And(psi, var != model[var]))
+
+    return is_unsat(z3.And(psi, var != model[var]))
+
+
 def is_uninterpreted_variable(node, /):
     return z3.is_const(node) and node.decl().kind() == z3.Z3_OP_UNINTERPRETED
 

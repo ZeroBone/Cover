@@ -21,6 +21,9 @@ class LinearConstraint:
             for variable_id, coeff in enumerate(self._lhs_linear_combination) if coeff != 0
         )) == self._rhs_constant
 
+    def get_lin_combination_copy(self) -> np.ndarray:
+        return self._lhs_linear_combination.copy()
+
     def __hash__(self) -> int:
         return hash((np.dot(self._lhs_linear_combination, self._lhs_linear_combination), self._rhs_constant))
 

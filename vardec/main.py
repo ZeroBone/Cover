@@ -1,10 +1,23 @@
+import logging
+import os
+import sys
+from pathlib import Path
+
 import z3 as z3
 
 from vardec import vardec
 from z3_utils import is_valid, is_sat, is_unsat
 
 
-if __name__ == '__main__':
+_logger = logging.getLogger("vardec")
+
+
+def _resolve_base_path():
+    base_path = Path(__file__).parent
+    return (base_path / "../").resolve()
+
+
+def _user_main():
     x_1, x_2, x_3, y_1, y_2, y_3 = z3.Reals("x_1 x_2 x_3 y_1 y_2 y_3")
 
     phi_1_eq = 12 * x_1 - 2 * x_2 + 16 * x_3 + 28 * y_1 + 35 * y_2 - 7 * y_3 == 0
@@ -94,3 +107,29 @@ if __name__ == '__main__':
     phi = z3.And(phi_1_eq, phi_2_eq, z3.Or(phi_3_lt, phi_4_gt), z3.Implies(phi_3_eq, phi_5_neq))
 
     vardec(phi, [x_1, x_2, x_3], [y_1, y_2, y_3])
+
+
+def _main():
+    # initialize the logger
+
+    verbose_mode = "--verbose" in sys.argv[1:]
+    safe_mode = "--unsafe" not in sys.argv[1:]
+
+    print("Verbose mode: %s" % ("enabled" if verbose_mode else "disabled"))
+    print("Safe mode: %s" % ("enabled" if safe_mode else "disabled"))
+
+    _logger.setLevel(logging.DEBUG if verbose_mode else logging.INFO)
+
+    file_handler = logging.FileHandler(os.path.join(_resolve_base_path(), "vardec.log"), mode="w")
+    file_handler.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter("[%(asctime)s %(levelname)7s]: %(message)s")
+    file_handler.setFormatter(formatter)
+
+    _logger.addHandler(file_handler)
+
+    _user_main()
+
+
+if __name__ == '__main__':
+    _main()
