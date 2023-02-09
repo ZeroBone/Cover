@@ -15,14 +15,34 @@ class LinearConstraint:
         self._lhs_linear_combination = lhs_linear_combination
         self._rhs_constant = rhs_constant
 
-    def to_z3_expression(self, context: VarDecContext, /):
+    def _linear_combination_expr(self, context: VarDecContext, /):
         return z3.Sum(*(
             coeff * context.index_to_variable(variable_id)
             for variable_id, coeff in enumerate(self._lhs_linear_combination) if coeff != 0
-        )) == self._rhs_constant
+        ))
 
     def get_lin_combination_copy(self) -> np.ndarray:
         return self._lhs_linear_combination.copy()
+
+    def model_satisfies_equality_version(self, model_vec: np.ndarray):
+        lhs_value = np.dot(self._lhs_linear_combination, model_vec)
+        assert isinstance(lhs_value, Rational)
+        assert isinstance(self._rhs_constant, Rational)
+        return lhs_value == self._rhs_constant
+
+    def get_version_satisfying_model(self, context: VarDecContext, model_vec: np.ndarray):
+
+        lhs_value = np.dot(self._lhs_linear_combination, model_vec)
+
+        lin_comb_z3 = self._linear_combination_expr(context)
+
+        if lhs_value < self._rhs_constant:
+            return lin_comb_z3 < self._rhs_constant
+
+        if lhs_value > self._rhs_constant:
+            return lin_comb_z3 > self._rhs_constant
+
+        return lin_comb_z3 == self._rhs_constant
 
     def __hash__(self) -> int:
         return hash((np.dot(self._lhs_linear_combination, self._lhs_linear_combination), self._rhs_constant))
