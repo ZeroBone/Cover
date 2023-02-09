@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import z3
 
 from context import VarDecContext
-from linconstraint import predicate_to_linear_constraint
 from gauss import compute_kernel, check_image_space_inclusion
-from z3_utils import get_formula_predicates, is_sat, is_valid
+from linconstraint import predicate_to_linear_constraint
+from z3_utils import is_sat, is_valid, get_formula_predicates
 
 _logger = logging.getLogger("vardec")
 
@@ -31,40 +31,48 @@ def _frozen_subset_to_label(ss: frozenset) -> str:
     return ",".join(str(n) for n in sorted(ss))
 
 
+class FormulaContext:
+
+    def __init__(self, phi, context: VarDecContext, /):
+        self.phi = phi
+
+        _logger.info("Formula:\n%s", phi)
+
+        self.constraints = []
+
+        for predicate in get_formula_predicates(phi):
+            _logger.info("Predicate: %s", predicate)
+
+            constraint = predicate_to_linear_constraint(context, predicate)
+
+            if constraint not in self.constraints:
+                self.constraints.append(constraint)
+
+        _logger.info("Constraints:\n%s", ",\n".join((str(c) for c in self.constraints)))
+
+    def get_constraint_count(self) -> int:
+        return len(self.constraints)
+
+
 def vardec(phi, x: list, y: list):
 
     context = VarDecContext(x, y)
-
-    _logger.info("Formula:\n%s", phi)
-
-    constraints = []
-
-    for predicate in get_formula_predicates(phi):
-        _logger.info("Predicate: %s", predicate)
-
-        constraint = predicate_to_linear_constraint(context, predicate)
-
-        if constraint not in constraints:
-            constraints.append(constraint)
-
-    _logger.info("Constraints:\n%s", ",\n".join((str(c) for c in constraints)))
-
-    constraint_count = len(constraints)
+    phi_context = FormulaContext(phi, context)
 
     # TODO: handle empty set separately
 
     kernel_table = {}
 
-    for subset_size in range(1, constraint_count):
+    for subset_size in range(1, phi_context.get_constraint_count()):
 
         _logger.debug("Subset size: %d", subset_size)
 
-        for i_subset in _subsets_of_size(subset_size, constraint_count):
+        for i_subset in _subsets_of_size(subset_size, phi_context.get_constraint_count()):
             _logger.debug("Subset: %s", i_subset)
 
             # we now build the constraint matrix
             constraint_matrix = np.array([
-                constraints[i].get_lin_combination_copy() for i in i_subset
+                phi_context.constraints[i].get_lin_combination_copy() for i in i_subset
             ], dtype=Fraction)
 
             _logger.debug("Constraint matrix: %s", constraint_matrix)
@@ -167,9 +175,9 @@ def vardec(phi, x: list, y: list):
 
     print("Model: %s Projected onto: x: %s y: %s" % (model_vec, model_vec_x, model_vec_y))
 
-    gamma = [constraint.get_version_satisfying_model(context, model_vec) for constraint in constraints]
+    gamma = [constraint.get_version_satisfying_model(context, model_vec) for constraint in phi_context.constraints]
     gamma_eq_constraint_indices = []
-    for i, constraint in enumerate(constraints):
+    for i, constraint in enumerate(phi_context.constraints):
         if constraint.model_satisfies_equality_version(model_vec):
             gamma_eq_constraint_indices.append(i)
 
