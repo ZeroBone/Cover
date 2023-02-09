@@ -136,6 +136,34 @@ def check_image_space_inclusion(a_mat: np.ndarray, b_mat: np.ndarray):
     return True
 
 
+def check_image_space_equality(a_mat: np.ndarray, b_mat: np.ndarray):
+    """ Tests whether the image of a_mat is equal to the image of b_mat """
+    return check_image_space_inclusion(a_mat, b_mat) and check_image_space_inclusion(b_mat, a_mat)
+
+
+def compute_gen_set_of_intersection_of_mat_images(a_mat: np.ndarray, b_mat: np.ndarray):
+    """ Computes a set of vectors generating im(a_mat) intersected with im(b_mat) """
+    assert a_mat.shape[0] == b_mat.shape[0]
+
+    a_mat_columns = a_mat.shape[1]
+
+    u_mat = np.concatenate((a_mat, -b_mat), axis=1)
+
+    u_mat_ker = compute_kernel(u_mat)
+
+    # this matrix contains the topmost a_mat_columns rows which
+    # describe what linear dependencies b_mat enforces on the coefficients
+    # of the linear combinations of columns of a_mat
+    u_mat_ker_lincomb_deps = u_mat_ker[:a_mat_columns, :]
+
+    gen_set = a_mat @ u_mat_ker_lincomb_deps
+
+    assert check_image_space_inclusion(gen_set, a_mat)
+    assert check_image_space_inclusion(gen_set, b_mat)
+
+    return gen_set
+
+
 if __name__ == "__main__":
 
     A = np.array([
@@ -251,3 +279,16 @@ if __name__ == "__main__":
             [2, 5, 7, 2, -4]
         ], dtype=Fraction)
     )
+
+    print(compute_gen_set_of_intersection_of_mat_images(
+        np.array([
+            [2, 1],
+            [-1, 0],
+            [0, 2]
+        ], dtype=Fraction),
+        np.array([
+            [-7, 5, 9, -3],
+            [-2, -2, 6, -2],
+            [5, -4, -6, 2]
+        ], dtype=Fraction)
+    ))

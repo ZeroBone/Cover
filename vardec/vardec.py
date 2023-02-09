@@ -208,3 +208,10 @@ def vardec(phi, x: list, y: list):
     print("Theta: %s" % theta)
 
     assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
+
+    disjunct_solver = z3.Solver()
+    disjunct_solver.add(z3.And(*theta))
+
+    print(disjunct_solver.check())
+
+    print(disjunct_solver.model())
