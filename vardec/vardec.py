@@ -110,7 +110,8 @@ def vardec(phi, x: list, y: list):
 
         assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
 
-        upsilon = []
+        upsilon_lt_gt = []
+        upsilon_neq = []
 
         disjunct_solver = z3.Solver()
         disjunct_solver.add(z3.And(*theta))
@@ -211,15 +212,15 @@ def vardec(phi, x: list, y: list):
                 if is_valid(z3.Implies(z3.And(*gamma), w_predicate_lt)):
                     _logger.info("Excellent! Gamma entails the < version of the w predicate.")
                     disjunct_solver.add(w_predicate_lt)
-                    upsilon.append(w_predicate_lt)
+                    upsilon_lt_gt.append(w_predicate_lt)
                 elif is_valid(z3.Implies(z3.And(*gamma), w_predicate_gt)):
                     _logger.info("Excellent! Gamma entails the > version of the w predicate.")
                     disjunct_solver.add(w_predicate_gt)
-                    upsilon.append(w_predicate_gt)
+                    upsilon_lt_gt.append(w_predicate_gt)
                 else:
                     _logger.info("Gamma unfortunately entails neither the < nor the > version of the w predicate.")
                     disjunct_solver.add(w_lhs != w_rhs)
-                    upsilon.append(w_lhs != w_rhs)
+                    upsilon_neq.append((w_lhs, w_rhs))
 
             else:
                 _logger.info(
@@ -233,7 +234,14 @@ def vardec(phi, x: list, y: list):
                     *(phi_context.constraints[i].get_equality_expr(context) for i in not_omega_eq_constraint_indices)
                 ))
 
-        print(upsilon)
+        print(upsilon_lt_gt)
+        print(upsilon_neq)
+
+        decomposition_disjuncts = []
+
+        decomposition = z3.And(*theta, *upsilon_lt_gt)
+
+        print("Decomposition: %s" % decomposition)
 
         # TODO: remove
         return
