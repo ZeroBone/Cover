@@ -6,6 +6,7 @@ from pathlib import Path
 import z3 as z3
 
 from lindep_graph import build_lindep_graph
+from vardec import vardec
 from z3_utils import is_valid, is_sat, is_unsat
 
 
@@ -106,7 +107,10 @@ def _user_main():
 
     phi = z3.And(phi_1_eq, phi_2_eq, z3.Or(phi_3_lt, phi_4_gt), z3.Implies(phi_3_eq, phi_5_neq))
 
-    build_lindep_graph(phi, [x_1, x_2, x_3], [y_1, y_2, y_3])
+    if "--lindep-graph" in sys.argv[1:]:
+        build_lindep_graph(phi, [x_1, x_2, x_3], [y_1, y_2, y_3])
+    else:
+        vardec(phi, [x_1, x_2, x_3], [y_1, y_2, y_3])
 
 
 def _main():
