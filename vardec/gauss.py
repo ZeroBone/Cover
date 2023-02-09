@@ -106,7 +106,7 @@ def compute_affine_space(a: np.ndarray, b: np.ndarray) -> AffineVectorSpace | No
 
     span = compute_kernel(a)
 
-    _logger.debug("Span:\n%s", span)
+    # _logger.debug("Span:\n%s", span)
 
     if span[:, -1][a.shape[1] - 1] != 1:
         # no solution
