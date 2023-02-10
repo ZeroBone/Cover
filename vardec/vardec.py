@@ -8,7 +8,7 @@ import z3
 from context import VarDecContext
 from gauss import compute_kernel, compute_gen_set_of_intersection_of_mat_images
 from linconstraint import predicate_to_linear_constraint
-from z3_utils import is_sat, is_valid, get_formula_predicates
+from z3_utils import is_sat, is_valid, get_formula_predicates, get_formula_variables
 
 _logger = logging.getLogger("vardec")
 
@@ -93,7 +93,14 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
     _logger.debug("Gamma equality constraint matrix kernel: %s", gamma_eq_constraint_mat_ker)
 
-    theta = []
+    theta = [
+        p for p in gamma if any(
+            set(v.unwrap() for v in get_formula_variables(p)).issubset(set(block))
+            for block in [context.x, context.y]
+        )
+    ]
+
+    _logger.info("Initializing Theta to be the set of Pi-Predicates in Gamma, that is: %s", theta)
 
     # we now translate the equality constraints into Pi-respecting formulas
     gamma_eq_constraint_mat_ker_x = context.select_rows_corresp_x(gamma_eq_constraint_mat_ker)
