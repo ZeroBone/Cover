@@ -37,6 +37,17 @@ class FormulaContext:
 
 
 def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamma_additional_constraints: list = None):
+
+    _logger.info("=== [Covering algorithm] ===")
+
+    if gamma_additional_constraints is None:
+        gamma_additional_constraints = []
+
+    _logger.info(
+        "Additional constraints: %s",
+        (constraint.get_equality_expr(context) for constraint in gamma_additional_constraints)
+    )
+
     gamma_model_vec = context.model_to_vec(gamma_model)
     gamma_model_vec_x = context.select_entries_corresp_x(gamma_model_vec)
     gamma_model_vec_y = context.select_entries_corresp_y(gamma_model_vec)
@@ -44,7 +55,8 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
     _logger.info("Model: %s Projected onto: x: %s y: %s", gamma_model_vec, gamma_model_vec_x, gamma_model_vec_y)
 
     gamma = [
-        constraint.get_version_satisfying_model(context, gamma_model_vec) for constraint in phi_context.constraints
+        *(constraint.get_version_satisfying_model(context, gamma_model_vec) for constraint in phi_context.constraints),
+        *(constraint.get_equality_expr(context) for constraint in gamma_additional_constraints)
     ]
 
     gamma_eq_constraint_indices = [
@@ -61,7 +73,8 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
     # compute the equality constraints matrix
 
     gamma_eq_constraint_mat = np.array([
-        phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_indices
+        *(phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_indices),
+        *(constraint.get_lin_combination_copy() for constraint in gamma_additional_constraints)
     ], dtype=Fraction)
 
     _logger.debug("Gamma equality constraint matrix: %s", gamma_eq_constraint_mat)
@@ -94,10 +107,11 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
             context.x_or_y_linear_comb_to_z3_expr(lin_dependency_witness, False)
             == np.dot(gamma_model_vec_y, lin_dependency_witness))
 
-    print("Theta: %s" % theta)
+    _logger.info("Theta: %s", theta)
 
     assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
 
+    delta = []
     upsilon_lt_gt = []
     upsilon_neq = []
 
@@ -188,11 +202,10 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
         if w_predicate is not None:
             w_lhs, w_rhs = w_predicate
-            w_predicate_eq = w_lhs == w_rhs
 
-            _logger.info("w predicate: %s", w_predicate_eq)
+            _logger.info("w predicate: %s", w_lhs == w_rhs)
 
-            assert is_valid(z3.Implies(z3.And(*omega_eq_constraints), w_predicate_eq))
+            assert is_valid(z3.Implies(z3.And(*omega_eq_constraints), w_lhs == w_rhs))
 
             w_predicate_lt = w_lhs < w_rhs
             w_predicate_gt = w_lhs > w_rhs
@@ -210,6 +223,27 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
                 disjunct_solver.add(w_lhs != w_rhs)
                 upsilon_neq.append((w_lhs, w_rhs))
 
+            rec_solver = z3.Solver()
+            rec_solver.add(z3.And(*gamma))
+            rec_solver.add(w_lhs == w_rhs)
+
+            if rec_solver.check() == z3.sat:
+                rec_model = rec_solver.model()
+                _logger.info("Gamma \\cup {w} is satisfiable. Model: %s. This means we recurse.", rec_model)
+
+                # make sure that Gamma doesn't lose any models
+                rec_cover = cover(
+                    context,
+                    phi_context,
+                    rec_model,
+                    gamma_additional_constraints + [predicate_to_linear_constraint(context, w_lhs == w_rhs)]
+                )
+
+                delta.append(rec_cover)
+
+            else:
+                _logger.info("Gamma \\cup {w} is unsatisfiable, no recursion happens.")
+
         else:
             _logger.info(
                 "The current disjunct Omega cannot be distinguished from Gamma in the language of Pi-decompositions"
@@ -222,8 +256,8 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
                 *(phi_context.constraints[i].get_equality_expr(context) for i in not_omega_eq_constraint_indices)
             ))
 
-    print("Upsilon^{<>} = %s" % upsilon_lt_gt)
-    print("Upsilon^{\\neq} = %s" % upsilon_neq)
+    _logger.debug("Upsilon^{<>} = %s", upsilon_lt_gt)
+    _logger.debug("Upsilon^{\\neq} = %s", upsilon_neq)
 
     decomposition_disjuncts = []
 
@@ -242,19 +276,24 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
             if is_sat(z3.And(*gamma, *current_decomposition_disjunct)):
                 decomposition_disjuncts.append(z3.And(*current_decomposition_disjunct))
             else:
-                print("Ignoring disjunct corresponding to %s" % subset_set)
+                _logger.info("Ignoring disjunct corresponding to %s", subset_set)
 
-    decomposition = z3.And(*theta, *upsilon_lt_gt, z3.Or(*decomposition_disjuncts))
+    decomposition = z3.Or(
+        z3.And(*theta, *upsilon_lt_gt, z3.Or(*decomposition_disjuncts)),
+        *delta
+    )
 
     print("Decomposition: %s" % decomposition)
 
     return decomposition
 
 
-def vardec(phi, x: list, y: list):
+def vardec(phi, x: list, y: list, debug_mode=True):
 
     context = VarDecContext(x, y)
     phi_context = FormulaContext(phi, context)
+
+    phi_dec = []
 
     global_solver = z3.Solver()
     global_solver.add(phi)
@@ -262,5 +301,23 @@ def vardec(phi, x: list, y: list):
     while global_solver.check() == z3.sat:
         gamma_model = global_solver.model()
         psi = cover(context, phi_context, gamma_model)
-        # TODO: remove
-        return
+
+        _logger.info("Covering algorithm produced psi:\n%s", psi)
+
+        if debug_mode:
+            assert is_valid(z3.Implies(
+                z3.And(*(
+                    constraint.get_version_satisfying_model(
+                        context,
+                        context.model_to_vec(gamma_model)
+                    )
+                    for constraint in phi_context.constraints
+                )),
+                psi
+            ))
+
+        phi_dec.append(psi)
+
+        global_solver.add(z3.Not(psi))
+
+    return z3.Or(*phi_dec)

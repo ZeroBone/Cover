@@ -110,7 +110,12 @@ def _user_main():
     if "--lindep-graph" in sys.argv[1:]:
         build_lindep_graph(phi, [x_1, x_2, x_3], [y_1, y_2, y_3])
     else:
-        vardec(phi, [x_1, x_2, x_3], [y_1, y_2, y_3])
+        decomposition = vardec(phi, [x_1, x_2, x_3], [y_1, y_2, y_3])
+
+        print("Final variable decomposition:\n%s" % decomposition)
+
+        assert is_valid(z3.Implies(decomposition, phi))
+        assert is_valid(z3.Implies(phi, decomposition))
 
 
 def _main():
