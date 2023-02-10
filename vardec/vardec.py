@@ -36,6 +36,10 @@ class FormulaContext:
         return len(self.constraints)
 
 
+def _rational_to_z3_ratval(frac: Fraction, /) -> z3.RatVal:
+    return z3.RatVal(frac.numerator, frac.denominator)
+
+
 def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamma_additional_constraints: list = None):
 
     _logger.info("=== [Covering algorithm] ===")
@@ -77,6 +81,10 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
         *(constraint.get_lin_combination_copy() for constraint in gamma_additional_constraints)
     ], dtype=Fraction)
 
+    if gamma_eq_constraint_mat.shape[0] == 0:
+        # the matrix is empty, that is, there are no equality constraints
+        gamma_eq_constraint_mat = np.zeros((1, context.variable_count()), dtype=Fraction)
+
     _logger.debug("Gamma equality constraint matrix: %s", gamma_eq_constraint_mat)
 
     # compute the kernel of the equality constraints matrix
@@ -92,25 +100,27 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
     gamma_eq_constraint_mat_ker_y = context.select_rows_corresp_y(gamma_eq_constraint_mat_ker)
 
     # analyze the matrix with the goal of determining whether the predicate set is Pi-simple or not
-    if not np.any(gamma_eq_constraint_mat_ker_x):
-        # the segment of the matrix corresponding to the X variable, is zero
-        # that is: X is fixed
-        _logger.info("Gamma is Pi-simple (X is fixed), hence covering is trivial.")
-        decomposition = z3.And(
-            *(x_var == gamma_model_vec_x[x_var_index] for x_var_index, x_var in enumerate(context.x))
-        )
-        assert is_valid(decomposition == z3.And(*gamma))
-        return decomposition
+    for var_name, gamma_eq_constraint_mat_ker_var, context_var, gamma_model_vec_var in [
+        ("X", gamma_eq_constraint_mat_ker_x, context.x, gamma_model_vec_x),
+        ("Y", gamma_eq_constraint_mat_ker_y, context.y, gamma_model_vec_y)
+    ]:
+        if not np.any(gamma_eq_constraint_mat_ker_var):
+            # the segment of the matrix corresponding to the var variable is zero
+            # that is: var (either X or Y) is fixed
+            _logger.info("Gamma is Pi-simple (%s is fixed), hence covering is trivial.", var_name)
 
-    if not np.any(gamma_eq_constraint_mat_ker_y):
-        # the segment of the matrix corresponding to the Y variable, is zero
-        # that is: Y is fixed
-        _logger.info("Gamma is Pi-simple (Y is fixed), hence covering is trivial.")
-        decomposition = z3.And(
-            *(y_var == gamma_model_vec_y[y_var_index] for y_var_index, y_var in enumerate(context.y))
-        )
-        assert is_valid(decomposition == z3.And(*gamma))
-        return decomposition
+            sigma = [
+                (var, _rational_to_z3_ratval(gamma_model_vec_var[var_index]))
+                for var_index, var in enumerate(context_var)
+            ]
+
+            decomposition = z3.And(
+                *(z3.substitute(p, *sigma) for p in gamma),
+                *(var == val for var, val in sigma)
+            )
+
+            assert is_valid(decomposition == z3.And(*gamma))
+            return decomposition
 
     gamma_eq_constraint_mat_lindep_x = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_x))
     gamma_eq_constraint_mat_lindep_y = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_y))
@@ -176,9 +186,12 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
         # compute the equality constraints matrix
 
-        omega_eq_constraint_mat = np.array([
-            phi_context.constraints[i].get_lin_combination_copy() for i in omega_eq_constraint_indices
-        ], dtype=Fraction)
+        if len(omega_eq_constraint_indices) > 0:
+            omega_eq_constraint_mat = np.array([
+                phi_context.constraints[i].get_lin_combination_copy() for i in omega_eq_constraint_indices
+            ], dtype=Fraction)
+        else:
+            omega_eq_constraint_mat = np.zeros((1, context.variable_count()), dtype=Fraction)
 
         omega_eq_constraint_mat_ker = compute_kernel(omega_eq_constraint_mat)
 
@@ -304,7 +317,7 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
         *delta
     )
 
-    print("Decomposition: %s" % decomposition)
+    _logger.info("Covering call returns decomposition:\n%s", decomposition)
 
     return decomposition
 
@@ -315,6 +328,9 @@ def vardec(phi, x: list, y: list, debug_mode=True):
     phi_context = FormulaContext(phi, context)
 
     phi_dec = []
+
+    entailment_solver = z3.Solver()
+    entailment_solver.add(z3.Not(phi))
 
     global_solver = z3.Solver()
     global_solver.add(phi)
@@ -336,6 +352,15 @@ def vardec(phi, x: list, y: list, debug_mode=True):
                 )),
                 psi
             ))
+
+        entailment_solver.push()
+        entailment_solver.add(psi)
+
+        if entailment_solver.check() == z3.sat:
+            # phi is not Pi-decomposable
+            return None
+
+        entailment_solver.pop()
 
         phi_dec.append(psi)
 
