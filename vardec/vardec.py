@@ -1,14 +1,15 @@
 import itertools
 import logging
 from fractions import Fraction
+from typing import List
 
 import numpy as np
 import z3
 
-from context import VarDecContext
+from context import VarDecContext, block_str
 from gauss import compute_kernel, compute_gen_set_of_intersection_of_mat_images
-from linconstraint import predicate_to_linear_constraint
-from z3_utils import is_sat, is_valid, get_formula_predicates, get_formula_variables
+from linconstraint import predicate_to_linear_constraint, LinearConstraint
+from z3_utils import is_sat, is_valid, get_formula_predicates
 
 _logger = logging.getLogger("vardec")
 
@@ -40,33 +41,46 @@ def _rational_to_z3_ratval(frac: Fraction, /) -> z3.RatVal:
     return z3.RatVal(frac.numerator, frac.denominator)
 
 
+def _matrix_add_zero_row_if_empty(mat: np.ndarray, mat_cols: int, /):
+    if mat.shape[0] == 0:
+        return np.zeros((1, mat_cols), dtype=Fraction)
+    return mat
+
+
 # TODO: make sure all constaints are instances of the linear constraints class (including pi-simple predicates)
 # TODO: refactor code such that it is never duplicated for X and for Y
 # TODO: support debug mode and perform assertions only there
 # TODO: implement simplification of formulas
 
 
-def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamma_additional_constraints: list = None):
+def cover(
+    context: VarDecContext,
+    phi_context: FormulaContext,
+    gamma_model,
+    gamma_additional_constraints: List[LinearConstraint] = None
+):
 
     _logger.info("=== [Covering algorithm] ===")
 
     if gamma_additional_constraints is None:
         gamma_additional_constraints = []
 
-    _logger.info(
+    _logger.debug(
         "Additional constraints: %s",
         [constraint.get_equality_expr(context) for constraint in gamma_additional_constraints]
     )
 
     gamma_model_vec = context.model_to_vec(gamma_model)
-    gamma_model_vec_x = context.select_entries_corresp_x(gamma_model_vec)
-    gamma_model_vec_y = context.select_entries_corresp_y(gamma_model_vec)
+    gamma_model_vec_proj = tuple(
+        context.project_vector_onto_block(gamma_model_vec, b)
+        for b in (VarDecContext.X, VarDecContext.Y)
+    )
 
-    _logger.info("Model: %s Projected onto: x: %s y: %s", gamma_model_vec, gamma_model_vec_x, gamma_model_vec_y)
+    _logger.debug("Model: %s", gamma_model_vec)
 
     gamma = [
-        *(constraint.get_version_satisfying_model(context, gamma_model_vec) for constraint in phi_context.constraints),
-        *(constraint.get_equality_expr(context) for constraint in gamma_additional_constraints)
+        *(ct.get_version_satisfying_model(context, gamma_model_vec) for ct in phi_context.constraints),
+        *(ct.get_equality_expr(context) for ct in gamma_additional_constraints)
     ]
 
     gamma_eq_constraint_indices = [
@@ -82,14 +96,13 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
     # compute the equality constraints matrix
 
-    gamma_eq_constraint_mat = np.array([
-        *(phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_indices),
-        *(constraint.get_lin_combination_copy() for constraint in gamma_additional_constraints)
-    ], dtype=Fraction)
-
-    if gamma_eq_constraint_mat.shape[0] == 0:
-        # the matrix is empty, that is, there are no equality constraints
-        gamma_eq_constraint_mat = np.zeros((1, context.variable_count()), dtype=Fraction)
+    gamma_eq_constraint_mat = _matrix_add_zero_row_if_empty(
+        np.array([
+            *(phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_indices),
+            *(constraint.get_lin_combination_copy() for constraint in gamma_additional_constraints)
+        ], dtype=Fraction),
+        context.variable_count()
+    )
 
     _logger.debug("Gamma equality constraint matrix: %s", gamma_eq_constraint_mat)
 
@@ -99,32 +112,26 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
     _logger.debug("Gamma equality constraint matrix kernel: %s", gamma_eq_constraint_mat_ker)
 
-    theta = [
-        p for p in gamma if any(
-            set(v.unwrap() for v in get_formula_variables(p)).issubset(set(block))
-            for block in [context.x, context.y]
-        )
-    ]
+    # choose predicates respecting the partition
+    theta = [p for p in gamma if context.predicate_respects_pi(p)]
 
-    _logger.info("Initializing Theta to be the set of Pi-Predicates in Gamma, that is: %s", theta)
+    _logger.info("Initialized Theta to be the set of Pi-respecting predicates in Gamma, that is: %s", theta)
 
     # we now translate the equality constraints into Pi-respecting formulas
-    gamma_eq_constraint_mat_ker_x = context.select_rows_corresp_x(gamma_eq_constraint_mat_ker)
-    gamma_eq_constraint_mat_ker_y = context.select_rows_corresp_y(gamma_eq_constraint_mat_ker)
+    gamma_eq_constraint_mat_ker_proj = tuple(
+        context.project_matrix_onto_block(gamma_eq_constraint_mat_ker, b)
+        for b in (VarDecContext.X, VarDecContext.Y)
+    )
 
     # analyze the matrix with the goal of determining whether the predicate set is Pi-simple or not
-    for var_name, gamma_eq_constraint_mat_ker_var, context_var, gamma_model_vec_var in [
-        ("X", gamma_eq_constraint_mat_ker_x, context.x, gamma_model_vec_x),
-        ("Y", gamma_eq_constraint_mat_ker_y, context.y, gamma_model_vec_y)
-    ]:
-        if not np.any(gamma_eq_constraint_mat_ker_var):
-            # the segment of the matrix corresponding to the var variable is zero
-            # that is: var (either X or Y) is fixed
-            _logger.info("Gamma is Pi-simple (%s is fixed), hence covering is trivial.", var_name)
+    for b in VarDecContext.X, VarDecContext.Y:
+        if not np.any(gamma_eq_constraint_mat_ker_proj[b]):
+            # the projected matrix is zero, that is, block is fixed
+            _logger.info("Gamma is Pi-simple (%s is fixed), hence covering is trivial.", block_str(b))
 
             sigma = [
-                (var, _rational_to_z3_ratval(gamma_model_vec_var[var_index]))
-                for var_index, var in enumerate(context_var)
+                (var, _rational_to_z3_ratval(gamma_model_vec_proj[b][i]))
+                for i, var in enumerate(context.block_variables_iter(b))
             ]
 
             decomposition = z3.And(
@@ -135,21 +142,24 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
             assert is_valid(decomposition == z3.And(*gamma))
             return decomposition, theta
 
-    gamma_eq_constraint_mat_lindep_x = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_x))
-    gamma_eq_constraint_mat_lindep_y = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_y))
+    gamma_eq_constraint_mat_lindep = tuple(
+        compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_proj[b]))
+        for b in (VarDecContext.X, VarDecContext.Y)
+    )
 
-    _logger.debug("Linear dependencies of Gamma^= with respect to x: %s", gamma_eq_constraint_mat_lindep_x)
-    _logger.debug("Linear dependencies of Gamma^= with respect to y: %s", gamma_eq_constraint_mat_lindep_y)
+    for b in VarDecContext.X, VarDecContext.Y:
+        _logger.debug(
+            "Linear dependencies of Gamma^= with respect to %s: %s",
+            block_str(b),
+            gamma_eq_constraint_mat_lindep[b]
+        )
 
-    for lin_dependency_witness in np.transpose(gamma_eq_constraint_mat_lindep_x):
-        theta.append(
-            context.x_or_y_linear_comb_to_z3_expr(lin_dependency_witness, True)
-            == np.dot(gamma_model_vec_x, lin_dependency_witness))
-
-    for lin_dependency_witness in np.transpose(gamma_eq_constraint_mat_lindep_y):
-        theta.append(
-            context.x_or_y_linear_comb_to_z3_expr(lin_dependency_witness, False)
-            == np.dot(gamma_model_vec_y, lin_dependency_witness))
+    for b in VarDecContext.X, VarDecContext.Y:
+        # iterate over the columns of the matrix
+        for lin_dependency_witness in np.transpose(gamma_eq_constraint_mat_lindep[b]):
+            theta.append(
+                context.block_linear_comb_to_expr(lin_dependency_witness, b)
+                == np.dot(gamma_model_vec_proj[b], lin_dependency_witness))
 
     _logger.info("Theta: %s", theta)
 
@@ -165,8 +175,8 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
     while disjunct_solver.check() == z3.sat:
         omega_model = disjunct_solver.model()
         omega_model_vec = context.model_to_vec(omega_model)
-        omega_model_vec_x = context.select_entries_corresp_x(omega_model_vec)
-        omega_model_vec_y = context.select_entries_corresp_y(omega_model_vec)
+        omega_model_vec_proj = context.project_vector_onto_block(omega_model_vec, VarDecContext.X), \
+            context.project_vector_onto_block(omega_model_vec, VarDecContext.Y)
 
         _logger.info("Found new disjunct Omega corresponding to model %s", omega_model_vec)
 
@@ -187,61 +197,67 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
             not_omega_eq_constraint_indices
         )
 
-        # translate the computed indices of constraints into actuall constraints
-
+        # translate the computed indices of constraints into actual constraints
         omega_eq_constraints = [
             phi_context.constraints[i].get_equality_expr(context) for i in omega_eq_constraint_indices
         ]
 
-        _logger.debug("Omega equality constraints: %s" % omega_eq_constraints)
-
-        assert len(omega_eq_constraints) == len(omega_eq_constraint_indices)
+        _logger.debug("Omega equality constraints: %s", omega_eq_constraints)
 
         # compute the equality constraints matrix
 
-        if len(omega_eq_constraint_indices) > 0:
-            omega_eq_constraint_mat = np.array([
+        omega_eq_constraint_mat = _matrix_add_zero_row_if_empty(
+            np.array([
                 phi_context.constraints[i].get_lin_combination_copy() for i in omega_eq_constraint_indices
-            ], dtype=Fraction)
-        else:
-            omega_eq_constraint_mat = np.zeros((1, context.variable_count()), dtype=Fraction)
+            ], dtype=Fraction),
+            context.variable_count()
+        )
 
         omega_eq_constraint_mat_ker = compute_kernel(omega_eq_constraint_mat)
 
-        omega_eq_constraint_mat_ker_x = context.select_rows_corresp_x(omega_eq_constraint_mat_ker)
-        omega_eq_constraint_mat_ker_y = context.select_rows_corresp_y(omega_eq_constraint_mat_ker)
+        omega_eq_constraint_mat_ker_proj = \
+            context.project_matrix_onto_block(omega_eq_constraint_mat_ker, VarDecContext.X),\
+            context.project_matrix_onto_block(omega_eq_constraint_mat_ker, VarDecContext.Y),
 
-        omega_eq_constraint_mat_lindep_x = compute_kernel(np.transpose(omega_eq_constraint_mat_ker_x))
-        omega_eq_constraint_mat_lindep_y = compute_kernel(np.transpose(omega_eq_constraint_mat_ker_y))
-
-        _logger.info("Linear dependencies of Omega^= with respect to x:\n%s", omega_eq_constraint_mat_lindep_x)
-        _logger.info("Linear dependencies of Omega^= with respect to y:\n%s", omega_eq_constraint_mat_lindep_y)
-
-        x_lindep_in_omega_but_not_in_gamma = compute_gen_set_of_intersection_of_mat_images(
-            omega_eq_constraint_mat_lindep_x, gamma_eq_constraint_mat_ker_x
-        )
-        y_lindep_in_omega_but_not_in_gamma = compute_gen_set_of_intersection_of_mat_images(
-            omega_eq_constraint_mat_lindep_y, gamma_eq_constraint_mat_ker_y
+        omega_eq_constraint_mat_lindep = tuple(
+            compute_kernel(np.transpose(omega_eq_constraint_mat_ker_proj[b]))
+            for b in (VarDecContext.X, VarDecContext.Y)
         )
 
-        _logger.info("Linear dependencies present in Omega but absent in Gamma, with respect to x:\n%s",
-                     x_lindep_in_omega_but_not_in_gamma)
-        _logger.info("Linear dependencies present in Omega but absent in Gamma, with respect to y:\n%s",
-                     y_lindep_in_omega_but_not_in_gamma)
+        for b in VarDecContext.X, VarDecContext.Y:
+            _logger.info(
+                "Linear dependencies of Omega^= with respect to %s:\n%s",
+                block_str(b),
+                omega_eq_constraint_mat_lindep[b]
+            )
+
+        lindep_diff = tuple(
+            compute_gen_set_of_intersection_of_mat_images(
+                omega_eq_constraint_mat_lindep[b], gamma_eq_constraint_mat_ker_proj[b]
+            )
+            for b in (VarDecContext.X, VarDecContext.Y)
+        )
+
+        for b in VarDecContext.X, VarDecContext.Y:
+            _logger.info(
+                "Linear dependencies present in Omega but absent in Gamma, with respect to %s:\n%s",
+                block_str(b),
+                lindep_diff[b]
+            )
 
         w_predicate = None
 
-        for wrt_x, lindep_diff, omega_model_vec_part in [
-            (True, x_lindep_in_omega_but_not_in_gamma, omega_model_vec_x),
-            (False, y_lindep_in_omega_but_not_in_gamma, omega_model_vec_y)
-        ]:
-            for w in np.transpose(lindep_diff):
+        for b in VarDecContext.X, VarDecContext.Y:
+            for w in np.transpose(lindep_diff[b]):
                 if not np.any(w):
                     # this column is a zero-column
                     continue
-                _logger.info("Found witness that Omega has more linear dependencies compared to Gamma.")
-                _logger.info("The witness is: w = %s", w)
-                w_predicate = context.x_or_y_linear_comb_to_z3_expr(w, wrt_x), np.dot(omega_model_vec_part, w)
+                _logger.info(
+                    "Found witness that Omega has more linear dependencies compared to Gamma with respect to %s: %s",
+                    block_str(b),
+                    w
+                )
+                w_predicate = context.block_linear_comb_to_expr(w, b), np.dot(omega_model_vec_proj[b], w)
                 break
 
             if w_predicate is not None:
@@ -250,7 +266,7 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
         if w_predicate is not None:
             w_lhs, w_rhs = w_predicate
 
-            _logger.info("w predicate: %s", w_lhs == w_rhs)
+            _logger.info("Witness predicate: %s", w_lhs == w_rhs)
 
             assert is_valid(z3.Implies(z3.And(*omega_eq_constraints), w_lhs == w_rhs))
 
@@ -258,15 +274,15 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
             w_predicate_gt = w_lhs > w_rhs
 
             if is_valid(z3.Implies(z3.And(*gamma), w_predicate_lt)):
-                _logger.info("Excellent! Gamma entails the < version of the w predicate.")
+                _logger.info("Excellent! Gamma entails the < version of the witness predicate.")
                 disjunct_solver.add(w_predicate_lt)
                 upsilon_lt_gt.append(w_predicate_lt)
             elif is_valid(z3.Implies(z3.And(*gamma), w_predicate_gt)):
-                _logger.info("Excellent! Gamma entails the > version of the w predicate.")
+                _logger.info("Excellent! Gamma entails the > version of the witness predicate.")
                 disjunct_solver.add(w_predicate_gt)
                 upsilon_lt_gt.append(w_predicate_gt)
             else:
-                _logger.info("Gamma unfortunately entails neither the < nor the > version of the w predicate.")
+                _logger.info("Gamma unfortunately entails neither the < nor the > version of the witness predicate.")
                 disjunct_solver.add(w_lhs != w_rhs)
                 upsilon_neq.append((w_lhs, w_rhs))
 
@@ -276,7 +292,10 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
             if rec_solver.check() == z3.sat:
                 rec_model = rec_solver.model()
-                _logger.info("Gamma \\cup {w} is satisfiable. Model: %s. This means we recurse.", rec_model)
+                _logger.info(
+                    "Gamma together with the witness predicate is satisfiable. Model: %s. Hence, we recursively cover.",
+                    rec_model
+                )
 
                 # make sure that Gamma doesn't lose any models
                 rec_cover, _ = cover(

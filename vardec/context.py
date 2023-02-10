@@ -1,7 +1,10 @@
 from fractions import Fraction
+from typing import Iterable
 
 import numpy as np
 from z3 import z3
+
+from z3_utils import get_formula_variables
 
 
 class VarDecContext:
@@ -10,58 +13,78 @@ class VarDecContext:
     Y = 1
 
     def __init__(self, x: list, y: list, /):
-        self.x = x
-        self.y = y
-        assert set(self.x).isdisjoint(set(self.y))
+        self._x = x
+        self._y = y
+        assert set(self._x).isdisjoint(set(self._y))
 
     def variable_count(self) -> int:
-        return len(self.x) + len(self.y)
+        return len(self._x) + len(self._y)
 
     def index_to_variable(self, i: int, /):
 
         assert i >= 0
         assert i < self.variable_count()
 
-        if i >= len(self.x):
-            return self.y[i - len(self.x)]
+        if i >= len(self._x):
+            return self._y[i - len(self._x)]
 
-        return self.x[i]
+        return self._x[i]
 
     def variable_to_index(self, var, /) -> int:
 
-        for i, v in enumerate(self.x + self.y):
+        for i, v in enumerate(self._x + self._y):
             if v == var:
                 return i
 
-        raise IndexError
+        assert False
 
-    def select_rows_corresp_x(self, m: np.ndarray):
-        return m[tuple(self.variable_to_index(v) for v in self.x), :]
+    def project_vector_onto_block(self, vec: np.ndarray, block: int, /) -> np.ndarray:
+        """ Project a one-dimensional vector onto the specified block of the partition """
+        if block == VarDecContext.X:
+            return vec[:len(self._x)]
+        if block == VarDecContext.Y:
+            return vec[len(self._x):]
+        assert False
 
-    def select_rows_corresp_y(self, m: np.ndarray):
-        return m[tuple(self.variable_to_index(v) for v in self.y), :]
+    def project_matrix_onto_block(self, mat: np.ndarray, block: int, /) -> np.ndarray:
+        """ Project a one-dimensional vector onto the specified block of the partition """
+        if block == VarDecContext.X:
+            return mat[:len(self._x), :]
+        if block == VarDecContext.Y:
+            return mat[len(self._x):, :]
+        assert False
 
-    def select_entries_corresp_x(self, m: np.ndarray):
-        return m[:len(self.x)]
+    def block_variables_iter(self, block: int, /) -> Iterable:
+        if block == VarDecContext.X:
+            return iter(self._x)
+        if block == VarDecContext.Y:
+            return iter(self._y)
+        assert False
 
-    def select_entries_corresp_y(self, m: np.ndarray):
-        return m[len(self.x):]
+    def block_linear_comb_to_expr(self, lincomb_coeffs: np.ndarray, block: int, /):
 
-    def x_or_y_linear_comb_to_z3_expr(self, lincomb_coeffs: np.ndarray, wrt_x: bool, /):
+        assert block == VarDecContext.X or block == VarDecContext.Y
 
-        var_list = self.x if wrt_x else self.y
+        var_list = self._x if block == VarDecContext.X else self._y
 
         assert lincomb_coeffs.shape[0] == len(var_list)
+
         return z3.Sum(*(
-            lincomb_coeffs[variable_id] * var
-            for variable_id, var in enumerate(var_list) if lincomb_coeffs[variable_id] != 0
+            lincomb_coeffs[var_id] * var
+            for var_id, var in enumerate(var_list) if lincomb_coeffs[var_id] != 0
         ))
+
+    def predicate_respects_pi(self, predicate) -> bool:
+        return any(
+            set(v.unwrap() for v in get_formula_variables(predicate)).issubset(set(pi_el))
+            for pi_el in (self._x, self._y)
+        )
 
     def model_to_vec(self, model) -> np.ndarray:
 
         model_vec = np.zeros((self.variable_count()), dtype=Fraction)
 
-        for i, v in enumerate(self.x + self.y):
+        for i, v in enumerate(self._x + self._y):
 
             var_val = Fraction(0)
 
@@ -72,3 +95,8 @@ class VarDecContext:
             model_vec[i] = var_val
 
         return model_vec
+
+
+def block_str(block: int, /) -> str:
+    assert block == VarDecContext.X or block == VarDecContext.Y
+    return "X" if block == VarDecContext.X else "Y"
