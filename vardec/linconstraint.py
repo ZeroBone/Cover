@@ -74,7 +74,7 @@ def _z3_linear_combination_to_rational_vector(context: VarDecContext, z3_sum, /)
 
     if is_uninterpreted_variable(z3_sum):
         # noinspection PyTypeChecker
-        coeffs = np.full((context.variable_count(),), Fraction(0), dtype=Fraction)
+        coeffs = np.zeros((context.variable_count(),), dtype=Fraction)
 
         # set the component corresponding to the variable to one
         coeffs[context.variable_to_index(z3_sum)] = Fraction(1)
@@ -83,9 +83,13 @@ def _z3_linear_combination_to_rational_vector(context: VarDecContext, z3_sum, /)
 
     node_type = z3_sum.decl().kind()
 
+    if node_type == z3.Z3_OP_UMINUS:
+        # unary minus
+        return -_z3_linear_combination_to_rational_vector(context, z3_sum.children()[0])
+
     if node_type == z3.Z3_OP_ADD:
         # noinspection PyTypeChecker
-        coeffs = np.full((context.variable_count(),), Fraction(0), dtype=Fraction)
+        coeffs = np.zeros((context.variable_count(),), dtype=Fraction)
 
         for operand in z3_sum.children():
             operand_coeffs = _z3_linear_combination_to_rational_vector(context, operand)

@@ -220,3 +220,45 @@ def plane_parallel_intersection():
     phi = And(phi_1_eq, phi_2_eq, Or(phi_3_lt, phi_4_gt), Implies(phi_3_eq, phi_5_neq))
 
     return phi, [x_1, x_2, x_3], [y_1, y_2, y_3]
+
+
+def three_sandwiched_spaces():
+    x_1, x_2, x_3, x_4, x_5, x_6 = z3.Reals("x_1 x_2 x_3 x_4 x_5 x_6")
+
+    phi_1 = x_1 + x_3 + 3 * x_4 + 9 * x_5 - 6 * x_6 == 0
+    phi_2 = x_1 + x_3 + 2 * x_4 + 6 * x_5 - 4 * x_6 == 0
+    phi_3 = x_1 + x_3 == 0
+    phi_4 = -11 * x_1 + 5 * x_2 + 3 * x_4 == 0
+    phi_5 = x_1 - x_2 + x_5 == 0
+    phi_6 = x_1 + 2 * x_2 - 3 * x_6 < 0
+    phi_7 = x_1 - 7 * x_2 + 3 * x_4 + 12 * x_5 == 0
+    phi_8 = -x_1 + 7 * x_2 + x_4 - 8 * x_6 == 0
+
+    phi = z3.Or(
+        z3.And(phi_1, phi_2, z3.Implies(z3.And(phi_3, phi_4, phi_5), phi_6)),
+        z3.And(phi_3, phi_7, phi_8)
+    )
+
+    assert is_sat(phi)
+
+    # Check B => C subspace inclusion
+    assert is_valid(z3.Implies(
+        z3.And(phi_3, phi_4, phi_5, x_1 + 2 * x_2 - 3 * x_6 == 0),
+        z3.And(phi_3, phi_7, phi_8)
+    ))
+
+    # Check C => A subspace inclusion
+    assert is_valid(z3.Implies(
+        z3.And(phi_3, phi_7, phi_8),
+        z3.And(phi_1, phi_2)
+    ))
+
+    phi_decomposition = z3.And(
+        x_1 + x_3 == 0,
+        x_4 + 3 * x_5 - 2 * x_6 == 0
+    )
+
+    # Check equivalence
+    assert is_valid(phi == phi_decomposition)
+
+    return phi, [x_1, x_2, x_3], [x_4, x_5, x_6]
