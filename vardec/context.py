@@ -6,6 +6,9 @@ from z3 import z3
 
 class VarDecContext:
 
+    X = 0
+    Y = 1
+
     def __init__(self, x: list, y: list, /):
         self.x = x
         self.y = y

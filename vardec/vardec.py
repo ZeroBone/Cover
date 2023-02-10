@@ -40,6 +40,12 @@ def _rational_to_z3_ratval(frac: Fraction, /) -> z3.RatVal:
     return z3.RatVal(frac.numerator, frac.denominator)
 
 
+# TODO: make sure all constaints are instances of the linear constraints class (including pi-simple predicates)
+# TODO: refactor code such that it is never duplicated for X and for Y
+# TODO: support debug mode and perform assertions only there
+# TODO: implement simplification of formulas
+
+
 def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamma_additional_constraints: list = None):
 
     _logger.info("=== [Covering algorithm] ===")
