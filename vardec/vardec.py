@@ -120,7 +120,7 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
             )
 
             assert is_valid(decomposition == z3.And(*gamma))
-            return decomposition
+            return decomposition, theta
 
     gamma_eq_constraint_mat_lindep_x = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_x))
     gamma_eq_constraint_mat_lindep_y = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_y))
@@ -266,7 +266,7 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
                 _logger.info("Gamma \\cup {w} is satisfiable. Model: %s. This means we recurse.", rec_model)
 
                 # make sure that Gamma doesn't lose any models
-                rec_cover = cover(
+                rec_cover, _ = cover(
                     context,
                     phi_context,
                     rec_model,
@@ -319,7 +319,7 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
     _logger.info("Covering call returns decomposition:\n%s", decomposition)
 
-    return decomposition
+    return decomposition, theta
 
 
 def vardec(phi, x: list, y: list, debug_mode=True):
@@ -332,38 +332,74 @@ def vardec(phi, x: list, y: list, debug_mode=True):
     entailment_solver = z3.Solver()
     entailment_solver.add(z3.Not(phi))
 
+    def _psi_entails_phi(_psi):
+        entailment_solver.push()
+        entailment_solver.add(_psi)
+        result = entailment_solver.check()
+        entailment_solver.pop()
+        assert result in [z3.sat, z3.unsat]
+        return result == z3.unsat
+
     global_solver = z3.Solver()
     global_solver.add(phi)
 
     while global_solver.check() == z3.sat:
         gamma_model = global_solver.model()
-        psi = cover(context, phi_context, gamma_model)
+        psi, theta = cover(context, phi_context, gamma_model)
 
         _logger.info("Covering algorithm produced psi:\n%s", psi)
+        _logger.info("Theta: %s", theta)
 
         if debug_mode:
-            assert is_valid(z3.Implies(
-                z3.And(*(
-                    constraint.get_version_satisfying_model(
-                        context,
-                        context.model_to_vec(gamma_model)
-                    )
-                    for constraint in phi_context.constraints
-                )),
-                psi
+            gamma = z3.And(*(
+                constraint.get_version_satisfying_model(
+                    context,
+                    context.model_to_vec(gamma_model)
+                )
+                for constraint in phi_context.constraints
             ))
 
-        entailment_solver.push()
-        entailment_solver.add(psi)
+            assert is_valid(z3.Implies(gamma, psi))
+            assert is_valid(z3.Implies(psi, z3.And(*theta)))
+            assert is_valid(z3.Implies(gamma, z3.And(*theta)))
 
-        if entailment_solver.check() == z3.sat:
+        # first check whether the unsafe covering, namely theta, entails phi
+
+        # TODO: move this heuristic inside the covering algorithm,
+        # TODO: there is no need to compute psi if theta already entails the formula
+
+        if _psi_entails_phi(z3.And(*theta)):
+            _logger.info("Heuristic success: Theta entails phi, so we can cover entire Theta")
+            # try to expand even further
+            theta_expanded = []
+            while len(theta) > 0:
+                p = theta.pop()
+                cur_expanded_covering = z3.And(*theta_expanded, *theta)
+                if _psi_entails_phi(cur_expanded_covering):
+                    # predicate p can be removed from theta
+                    continue
+                # the expanding formula doesn't entail phi
+                # hence, it is crucial to keep p
+                theta_expanded.append(p)
+
+            _logger.info("Theta expanded: %s", theta_expanded)
+            expanded_covering = z3.And(*theta_expanded)
+            assert _psi_entails_phi(expanded_covering)
+
+            phi_dec.append(expanded_covering)
+            global_solver.add(z3.Not(expanded_covering))
+            continue
+
+        # otherwise we fall back to the sound and complete covering, namely psi
+        _logger.info("Heuristic fail: Theta does not entail phi, falling back to psi")
+
+        if not _psi_entails_phi(psi):
             # phi is not Pi-decomposable
             return None
 
-        entailment_solver.pop()
+        # decide what covering we can add to the decomposition
 
         phi_dec.append(psi)
-
         global_solver.add(z3.Not(psi))
 
     return z3.Or(*phi_dec)
