@@ -45,7 +45,7 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
 
     _logger.info(
         "Additional constraints: %s",
-        (constraint.get_equality_expr(context) for constraint in gamma_additional_constraints)
+        [constraint.get_equality_expr(context) for constraint in gamma_additional_constraints]
     )
 
     gamma_model_vec = context.model_to_vec(gamma_model)
@@ -90,6 +90,27 @@ def cover(context: VarDecContext, phi_context: FormulaContext, gamma_model, gamm
     # we now translate the equality constraints into Pi-respecting formulas
     gamma_eq_constraint_mat_ker_x = context.select_rows_corresp_x(gamma_eq_constraint_mat_ker)
     gamma_eq_constraint_mat_ker_y = context.select_rows_corresp_y(gamma_eq_constraint_mat_ker)
+
+    # analyze the matrix with the goal of determining whether the predicate set is Pi-simple or not
+    if not np.any(gamma_eq_constraint_mat_ker_x):
+        # the segment of the matrix corresponding to the X variable, is zero
+        # that is: X is fixed
+        _logger.info("Gamma is Pi-simple (X is fixed), hence covering is trivial.")
+        decomposition = z3.And(
+            *(x_var == gamma_model_vec_x[x_var_index] for x_var_index, x_var in enumerate(context.x))
+        )
+        assert is_valid(decomposition == z3.And(*gamma))
+        return decomposition
+
+    if not np.any(gamma_eq_constraint_mat_ker_y):
+        # the segment of the matrix corresponding to the Y variable, is zero
+        # that is: Y is fixed
+        _logger.info("Gamma is Pi-simple (Y is fixed), hence covering is trivial.")
+        decomposition = z3.And(
+            *(y_var == gamma_model_vec_y[y_var_index] for y_var_index, y_var in enumerate(context.y))
+        )
+        assert is_valid(decomposition == z3.And(*gamma))
+        return decomposition
 
     gamma_eq_constraint_mat_lindep_x = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_x))
     gamma_eq_constraint_mat_lindep_y = compute_kernel(np.transpose(gamma_eq_constraint_mat_ker_y))
