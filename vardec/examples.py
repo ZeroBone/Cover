@@ -274,3 +274,13 @@ def three_sandwiched_spaces():
     assert is_valid(phi == phi_decomposition)
 
     return phi, [x_1, x_2, x_3], [x_4, x_5, x_6]
+
+
+def inequality_inference():
+    x_1, x_2, y_1, y_2 = Reals("x_1 x_2 y_1 y_2")
+
+    return And(
+        x_1 + x_2 + y_1 == 0,
+        y_1 == 0,
+        Or(x_1 - y_2 != 0, x_1 + y_2 != 0)
+    ), [x_1, x_2], [y_1, y_2]
