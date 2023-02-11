@@ -90,6 +90,11 @@ class VarDecContext:
             for pi_el in (self._x, self._y)
         )
 
+    def predicate_lincomb_respects_pi(self, lincomb: np.ndarray, /) -> bool:
+        if not np.any(self.project_vector_onto_block(lincomb, VarDecContext.X)):
+            return True
+        return not np.any(self.project_vector_onto_block(lincomb, VarDecContext.Y))
+
     def model_to_vec(self, model) -> np.ndarray:
 
         model_vec = np.zeros((self.variable_count()), dtype=Fraction)

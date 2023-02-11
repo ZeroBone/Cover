@@ -60,7 +60,17 @@ def cover(
         *(ct.get_equality_expr(context) for ct in gamma_additional_constraints)
     ]
 
+    if debug_mode:
+        for ct in gamma_additional_constraints:
+            assert ct.respects_pi(context)
+
     # choose predicates respecting the partition
+    theta_equality_linear_constraints = [
+        *(ct for ct in phi_context.constraints if
+            ct.model_satisfies_equality_version(gamma_model_vec) and ct.respects_pi(context)),
+        *gamma_additional_constraints
+    ]
+
     theta = [p for p in gamma if context.predicate_respects_pi(p)]
 
     _logger.info("Initialized Theta to be the set of Pi-respecting predicates in Gamma, that is:\nTheta = %s", theta)
@@ -138,14 +148,24 @@ def cover(
     for b in VarDecContext.X, VarDecContext.Y:
         # iterate over the columns of the matrix
         for lin_dependency_witness in np.transpose(gamma_eq_constraint_mat_lindep[b]):
-            theta.append(
-                context.block_linear_comb_to_expr(lin_dependency_witness, b)
-                == np.dot(gamma_model_vec_proj[b], lin_dependency_witness))
+
+            lin_dependency_constraint = LinearConstraint(
+                context.project_vector_back_from_block(lin_dependency_witness, b),
+                np.dot(gamma_model_vec_proj[b], lin_dependency_witness)
+            )
+
+            theta_equality_linear_constraints.append(lin_dependency_constraint)
+
+            theta.append(lin_dependency_constraint.get_equality_expr(context))
 
     _logger.info("Theta (with Gamma's linear dependencies enforced):\n%s", theta)
 
     if debug_mode:
         assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
+        assert is_valid(z3.Implies(
+            z3.And(*gamma),
+            z3.And(*(ct.get_equality_expr(context) for ct in theta_equality_linear_constraints))
+        ))
 
     if use_heuristics:
         # now we try to cover Gamma in a very agressive manner, for which model flooding doesn't hold
@@ -204,25 +224,17 @@ def cover(
                 not_omega_eq_constraint_indices
             )
 
-        # translate the computed indices of constraints into actual constraints
-        omega_eq_constraints = [
-            *(phi_context.constraints[i].get_equality_expr(context) for i in omega_eq_constraint_indices),
-            # TODO: consider this
-            # *(constraint.get_equality_expr(context) for constraint in gamma_additional_constraints)
-        ]
-
-        _logger.debug("Omega equality constraints: %s", omega_eq_constraints)
-
-        # compute the equality constraints matrix
-
+        # compute the omega equality constraints matrix
         omega_eq_constraint_mat = _matrix_add_zero_row_if_empty(
             np.array([
                 *(phi_context.constraints[i].get_lin_combination_copy() for i in omega_eq_constraint_indices),
-                # TODO: consider this
-                # *(constraint.get_lin_combination_copy() for constraint in gamma_additional_constraints)
+                # every omega contains all the equality predicates from theta
+                *(constraint.get_lin_combination_copy() for constraint in theta_equality_linear_constraints)
             ], dtype=Fraction),
             context.variable_count()
         )
+
+        _logger.debug("Omega equality constraints matrix:\n%s", omega_eq_constraint_mat)
 
         omega_eq_constraint_mat_ker = compute_kernel(omega_eq_constraint_mat)
 
@@ -294,7 +306,14 @@ def cover(
             _logger.info("Witness predicate: %s", w_lhs == w_rhs)
 
             if debug_mode:
-                assert is_valid(z3.Implies(z3.And(*omega_eq_constraints), w_lhs == w_rhs))
+                _omega_eq = z3.And(
+                    # equality predicates of Omega, from the original formula phi
+                    *(phi_context.constraints[i].get_equality_expr(context) for i in omega_eq_constraint_indices),
+                    # equality predicates of Omega which originate from Theta
+                    *(constraint.get_equality_expr(context) for constraint in theta_equality_linear_constraints)
+                )
+                assert is_sat(_omega_eq)
+                assert is_valid(z3.Implies(_omega_eq, w_lhs == w_rhs))
 
             w_predicate_lt = w_lhs < w_rhs
             w_predicate_gt = w_lhs > w_rhs
@@ -347,7 +366,7 @@ def cover(
 
             disjunct_solver.add(z3.Or(
                 # new disjuncts must either disagree with Omega on some of its equality predicates
-                *(z3.Not(eq) for eq in omega_eq_constraints),
+                *(z3.Not(phi_context.constraints[i].get_equality_expr(context)) for i in omega_eq_constraint_indices),
                 # or they must contain strictly more equality predicates compared to Omega
                 *(phi_context.constraints[i].get_equality_expr(context) for i in not_omega_eq_constraint_indices)
             ))
@@ -384,9 +403,11 @@ def cover(
     return decomposition
 
 
-def vardec(phi, x: list, y: list, debug_mode=True, use_heuristics=True):
+def vardec(phi, x: list, y: list, /, *, debug_mode=True, use_heuristics=True, context=None):
 
-    context = VarDecContext(x, y)
+    if context is None:
+        context = VarDecContext(x, y)
+
     phi_context = FormulaContext(phi, context)
 
     phi_dec = []
@@ -418,4 +439,4 @@ def vardec(phi, x: list, y: list, debug_mode=True, use_heuristics=True):
         phi_dec.append(psi)
         global_solver.add(z3.Not(psi))
 
-    return z3.Or(*phi_dec), context
+    return z3.Or(*phi_dec)

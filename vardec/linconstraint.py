@@ -27,13 +27,13 @@ class LinearConstraint:
     def get_rhs_constrant(self) -> Rational:
         return self._rhs_constant
 
-    def model_satisfies_equality_version(self, model_vec: np.ndarray):
+    def model_satisfies_equality_version(self, model_vec: np.ndarray, /):
         lhs_value = np.dot(self._lhs_linear_combination, model_vec)
         assert isinstance(lhs_value, Rational)
         assert isinstance(self._rhs_constant, Rational)
         return lhs_value == self._rhs_constant
 
-    def get_version_satisfying_model(self, context: VarDecContext, model_vec: np.ndarray):
+    def get_version_satisfying_model(self, context: VarDecContext, model_vec: np.ndarray, /):
 
         lhs_value = np.dot(self._lhs_linear_combination, model_vec)
 
@@ -47,9 +47,12 @@ class LinearConstraint:
 
         return lin_comb_z3 == self._rhs_constant
 
-    def get_equality_expr(self, context: VarDecContext):
+    def get_equality_expr(self, context: VarDecContext, /):
         lin_comb_z3 = self.get_lhs_linear_combination_expr(context)
         return lin_comb_z3 == self._rhs_constant
+
+    def respects_pi(self, context: VarDecContext, /) -> bool:
+        return context.predicate_lincomb_respects_pi(self._lhs_linear_combination)
 
     def __hash__(self) -> int:
         return hash((np.dot(self._lhs_linear_combination, self._lhs_linear_combination), self._rhs_constant))

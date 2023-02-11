@@ -8,6 +8,7 @@ import z3
 
 import examples
 from vardec import vardec
+from vardec_context import VarDecContext
 from z3_utils import is_valid
 
 
@@ -64,7 +65,9 @@ def _main():
         ", ".join(str(y_var) for y_var in y),
     )
 
-    decomposition, context = vardec(phi, x, y, debug_mode, use_heuristics)
+    context = VarDecContext(x, y)
+
+    decomposition = vardec(phi, x, y, debug_mode=debug_mode, use_heuristics=use_heuristics, context=context)
 
     _logger.info(("=" * 20) + " [RESULT] " + ("=" * 20))
 
