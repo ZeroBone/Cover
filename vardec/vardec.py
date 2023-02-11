@@ -94,6 +94,11 @@ def cover(
         *(ct.get_equality_expr(context) for ct in gamma_additional_constraints)
     ]
 
+    # choose predicates respecting the partition
+    theta = [p for p in gamma if context.predicate_respects_pi(p)]
+
+    _logger.info("Initialized Theta to be the set of Pi-respecting predicates in Gamma, that is:\nTheta = %s", theta)
+
     gamma_eq_constraint_indices = [
         i for i, constraint in enumerate(phi_context.constraints)
         if constraint.model_satisfies_equality_version(gamma_model_vec)
@@ -106,6 +111,7 @@ def cover(
         _logger.debug("Equality constraint id's: %s", gamma_eq_constraint_indices)
 
     # compute the equality constraints matrix
+    # TODO: implement caching for this
 
     gamma_eq_constraint_mat = _matrix_add_zero_row_if_empty(
         np.array([
@@ -116,19 +122,14 @@ def cover(
     )
 
     if debug_mode:
-        _logger.debug("Gamma equality constraint matrix: %s", gamma_eq_constraint_mat)
+        _logger.debug("Gamma equality constraint matrix:\n%s", gamma_eq_constraint_mat)
 
     # compute the kernel of the equality constraints matrix
 
     gamma_eq_constraint_mat_ker = compute_kernel(gamma_eq_constraint_mat)
 
     if debug_mode:
-        _logger.debug("Gamma equality constraint matrix kernel: %s", gamma_eq_constraint_mat_ker)
-
-    # choose predicates respecting the partition
-    theta = [p for p in gamma if context.predicate_respects_pi(p)]
-
-    _logger.info("Initialized Theta to be the set of Pi-respecting predicates in Gamma, that is: %s", theta)
+        _logger.debug("Gamma equality constraint matrix kernel:\n%s", gamma_eq_constraint_mat_ker)
 
     # we now translate the equality constraints into Pi-respecting formulas
     gamma_eq_constraint_mat_ker_proj = tuple(
@@ -164,7 +165,7 @@ def cover(
     if debug_mode:
         for b in VarDecContext.X, VarDecContext.Y:
             _logger.debug(
-                "Linear dependencies of Gamma^= with respect to %s: %s",
+                "Linear dependencies of Gamma^= with respect to %s:\n%s",
                 block_str(b),
                 gamma_eq_constraint_mat_lindep[b]
             )
@@ -176,7 +177,7 @@ def cover(
                 context.block_linear_comb_to_expr(lin_dependency_witness, b)
                 == np.dot(gamma_model_vec_proj[b], lin_dependency_witness))
 
-    _logger.info("Theta: %s", theta)
+    _logger.info("Theta (with Gamma's linear dependencies enforced):\n%s", theta)
 
     if debug_mode:
         assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
@@ -344,9 +345,9 @@ def cover(
 
             if rec_solver.check() == z3.sat:
                 rec_model = rec_solver.model()
-                _logger.info(
-                    "Gamma together with the witness predicate is satisfiable. Model: %s. Hence, we recursively cover.",
-                    rec_model
+                _logger.debug(
+                    "Gamma together with the witness predicate is satisfiable, so we cover recursively.\nModel: %s",
+                    context.model_to_vec(rec_model)
                 )
 
                 # make sure that Gamma doesn't lose any models
