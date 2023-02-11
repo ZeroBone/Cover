@@ -47,7 +47,6 @@ def _matrix_add_zero_row_if_empty(mat: np.ndarray, mat_cols: int, /):
     return mat
 
 
-# TODO: support debug mode and perform assertions only there
 # TODO: implement simplification of formulas
 
 
@@ -55,7 +54,8 @@ def cover(
     context: VarDecContext,
     phi_context: FormulaContext,
     gamma_model,
-    gamma_additional_constraints: List[LinearConstraint] = None
+    gamma_additional_constraints: List[LinearConstraint] = None, /, *,
+    debug_mode: bool = True
 ):
 
     _logger.info("=== [Covering algorithm] ===")
@@ -63,10 +63,11 @@ def cover(
     if gamma_additional_constraints is None:
         gamma_additional_constraints = []
 
-    _logger.debug(
-        "Additional constraints: %s",
-        [constraint.get_equality_expr(context) for constraint in gamma_additional_constraints]
-    )
+    if debug_mode:
+        _logger.debug(
+            "Additional constraints: %s",
+            [constraint.get_equality_expr(context) for constraint in gamma_additional_constraints]
+        )
 
     gamma_model_vec = context.model_to_vec(gamma_model)
     gamma_model_vec_proj = tuple(
@@ -74,7 +75,8 @@ def cover(
         for b in (VarDecContext.X, VarDecContext.Y)
     )
 
-    _logger.debug("Model: %s", gamma_model_vec)
+    if debug_mode:
+        _logger.debug("Model: %s", gamma_model_vec)
 
     gamma = [
         *(ct.get_version_satisfying_model(context, gamma_model_vec) for ct in phi_context.constraints),
@@ -86,11 +88,11 @@ def cover(
         if constraint.model_satisfies_equality_version(gamma_model_vec)
     ]
 
-    assert is_sat(z3.And(*gamma))
-    assert is_valid(z3.Implies(z3.And(*(v == gamma_model[v] for v in gamma_model)), z3.And(*gamma)))
-
-    _logger.debug("Gamma: %s", gamma)
-    _logger.debug("Equality constraint id's: %s", gamma_eq_constraint_indices)
+    if debug_mode:
+        assert is_sat(z3.And(*gamma))
+        assert is_valid(z3.Implies(z3.And(*(v == gamma_model[v] for v in gamma_model)), z3.And(*gamma)))
+        _logger.debug("Gamma: %s", gamma)
+        _logger.debug("Equality constraint id's: %s", gamma_eq_constraint_indices)
 
     # compute the equality constraints matrix
 
@@ -102,13 +104,15 @@ def cover(
         context.variable_count()
     )
 
-    _logger.debug("Gamma equality constraint matrix: %s", gamma_eq_constraint_mat)
+    if debug_mode:
+        _logger.debug("Gamma equality constraint matrix: %s", gamma_eq_constraint_mat)
 
     # compute the kernel of the equality constraints matrix
 
     gamma_eq_constraint_mat_ker = compute_kernel(gamma_eq_constraint_mat)
 
-    _logger.debug("Gamma equality constraint matrix kernel: %s", gamma_eq_constraint_mat_ker)
+    if debug_mode:
+        _logger.debug("Gamma equality constraint matrix kernel: %s", gamma_eq_constraint_mat_ker)
 
     # choose predicates respecting the partition
     theta = [p for p in gamma if context.predicate_respects_pi(p)]
@@ -137,7 +141,8 @@ def cover(
                 *(var == val for var, val in sigma)
             )
 
-            assert is_valid(decomposition == z3.And(*gamma))
+            if debug_mode:
+                assert is_valid(decomposition == z3.And(*gamma))
             return decomposition, theta
 
     gamma_eq_constraint_mat_lindep = tuple(
@@ -145,12 +150,13 @@ def cover(
         for b in (VarDecContext.X, VarDecContext.Y)
     )
 
-    for b in VarDecContext.X, VarDecContext.Y:
-        _logger.debug(
-            "Linear dependencies of Gamma^= with respect to %s: %s",
-            block_str(b),
-            gamma_eq_constraint_mat_lindep[b]
-        )
+    if debug_mode:
+        for b in VarDecContext.X, VarDecContext.Y:
+            _logger.debug(
+                "Linear dependencies of Gamma^= with respect to %s: %s",
+                block_str(b),
+                gamma_eq_constraint_mat_lindep[b]
+            )
 
     for b in VarDecContext.X, VarDecContext.Y:
         # iterate over the columns of the matrix
@@ -161,7 +167,8 @@ def cover(
 
     _logger.info("Theta: %s", theta)
 
-    assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
+    if debug_mode:
+        assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
 
     delta = []
     upsilon_lt_gt = []
@@ -189,11 +196,12 @@ def cover(
             else:
                 not_omega_eq_constraint_indices.append(i)
 
-        _logger.debug(
-            "Omega equality constraint id's: %s Id's of absent constraints: %s",
-            omega_eq_constraint_indices,
-            not_omega_eq_constraint_indices
-        )
+        if debug_mode:
+            _logger.debug(
+                "Omega equality constraint id's: %s Id's of absent constraints: %s",
+                omega_eq_constraint_indices,
+                not_omega_eq_constraint_indices
+            )
 
         # translate the computed indices of constraints into actual constraints
         omega_eq_constraints = [
@@ -222,12 +230,13 @@ def cover(
             for b in (VarDecContext.X, VarDecContext.Y)
         )
 
-        for b in VarDecContext.X, VarDecContext.Y:
-            _logger.info(
-                "Linear dependencies of Omega^= with respect to %s:\n%s",
-                block_str(b),
-                omega_eq_constraint_mat_lindep[b]
-            )
+        if debug_mode:
+            for b in VarDecContext.X, VarDecContext.Y:
+                _logger.debug(
+                    "Linear dependencies of Omega^= with respect to %s:\n%s",
+                    block_str(b),
+                    omega_eq_constraint_mat_lindep[b]
+                )
 
         lindep_diff = tuple(
             compute_gen_set_of_intersection_of_mat_images(
@@ -236,20 +245,23 @@ def cover(
             for b in (VarDecContext.X, VarDecContext.Y)
         )
 
-        for b in VarDecContext.X, VarDecContext.Y:
-            _logger.info(
-                "Linear dependencies present in Omega but absent in Gamma, with respect to %s:\n%s",
-                block_str(b),
-                lindep_diff[b]
-            )
+        if debug_mode:
+            for b in VarDecContext.X, VarDecContext.Y:
+                _logger.debug(
+                    "Linear dependencies present in Omega but absent in Gamma, with respect to %s:\n%s",
+                    block_str(b),
+                    lindep_diff[b]
+                )
 
         w_pred_constraint = None
 
         for b in VarDecContext.X, VarDecContext.Y:
             for w in np.transpose(lindep_diff[b]):
+
                 if not np.any(w):
                     # this column is a zero-column
                     continue
+
                 _logger.info(
                     "Found witness that Omega has more linear dependencies compared to Gamma with respect to %s: %s",
                     block_str(b),
@@ -272,7 +284,8 @@ def cover(
 
             _logger.info("Witness predicate: %s", w_lhs == w_rhs)
 
-            assert is_valid(z3.Implies(z3.And(*omega_eq_constraints), w_lhs == w_rhs))
+            if debug_mode:
+                assert is_valid(z3.Implies(z3.And(*omega_eq_constraints), w_lhs == w_rhs))
 
             w_predicate_lt = w_lhs < w_rhs
             w_predicate_gt = w_lhs > w_rhs
@@ -306,13 +319,14 @@ def cover(
                     context,
                     phi_context,
                     rec_model,
-                    gamma_additional_constraints + [w_pred_constraint]
+                    gamma_additional_constraints + [w_pred_constraint],
+                    debug_mode=debug_mode
                 )
 
                 delta.append(rec_cover)
 
             else:
-                _logger.info("Gamma \\cup {w} is unsatisfiable, no recursion happens.")
+                _logger.info("Gamma together with the witness predicate is unsatisfiable, no recursion happens.")
 
         else:
             _logger.info(
@@ -345,8 +359,8 @@ def cover(
 
             if is_sat(z3.And(*gamma, *current_decomposition_disjunct)):
                 decomposition_disjuncts.append(z3.And(*current_decomposition_disjunct))
-            else:
-                _logger.info("Ignoring disjunct corresponding to %s", subset_set)
+            elif debug_mode:
+                _logger.debug("Ignoring disjunct corresponding to %s", subset_set)
 
     decomposition = z3.Or(
         z3.And(*theta, *upsilon_lt_gt, z3.Or(*decomposition_disjuncts)),
@@ -381,7 +395,7 @@ def vardec(phi, x: list, y: list, debug_mode=True):
 
     while global_solver.check() == z3.sat:
         gamma_model = global_solver.model()
-        psi, theta = cover(context, phi_context, gamma_model)
+        psi, theta = cover(context, phi_context, gamma_model, debug_mode=debug_mode)
 
         _logger.info("Covering algorithm produced psi:\n%s", psi)
         _logger.info("Theta: %s", theta)
@@ -420,7 +434,8 @@ def vardec(phi, x: list, y: list, debug_mode=True):
 
             _logger.info("Theta expanded: %s", theta_expanded)
             expanded_covering = z3.And(*theta_expanded)
-            assert _psi_entails_phi(expanded_covering)
+            if debug_mode:
+                assert _psi_entails_phi(expanded_covering)
 
             phi_dec.append(expanded_covering)
             global_solver.add(z3.Not(expanded_covering))
