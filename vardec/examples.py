@@ -276,7 +276,7 @@ def three_sandwiched_spaces():
     return phi, [x_1, x_2, x_3], [x_4, x_5, x_6]
 
 
-def inequality_inference():
+def strict_inequality_inference():
     x_1, x_2, y_1, y_2 = Reals("x_1 x_2 y_1 y_2")
 
     return And(

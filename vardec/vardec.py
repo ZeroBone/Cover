@@ -65,7 +65,8 @@ def cover(
     phi_context: FormulaContext,
     gamma_model,
     gamma_additional_constraints: List[LinearConstraint] = None, /, *,
-    debug_mode: bool = True
+    debug_mode: bool = True,
+    use_heuristics: bool = True
 ):
 
     _logger.info("=== [Covering algorithm] ===")
@@ -180,28 +181,29 @@ def cover(
     if debug_mode:
         assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
 
-    # now we try to cover Gamma in a very agressive manner, for which model flooding doesn't hold
-    # this is an optional heuristic designed to improve the performance
+    if use_heuristics:
+        # now we try to cover Gamma in a very agressive manner, for which model flooding doesn't hold
+        # this is an optional heuristic designed to improve the performance
 
-    if phi_context.query_whether_formula_entails_phi(z3.And(*theta)):
-        _logger.info("Heuristic success: Theta entails phi, so we can cover entire Theta")
-        # try to expand even further
-        theta_expanded = []
-        while len(theta) > 0:
-            p = theta.pop()
-            cur_expanded_covering = z3.And(*theta_expanded, *theta)
-            if phi_context.query_whether_formula_entails_phi(cur_expanded_covering):
-                # predicate p can be removed from theta
-                continue
-            # the expanding formula doesn't entail phi
-            # hence, it is crucial to keep p
-            theta_expanded.append(p)
+        if phi_context.query_whether_formula_entails_phi(z3.And(*theta)):
+            _logger.info("Heuristic success: Theta entails phi, so we can cover entire Theta")
+            # try to expand even further
+            theta_expanded = []
+            while len(theta) > 0:
+                p = theta.pop()
+                cur_expanded_covering = z3.And(*theta_expanded, *theta)
+                if phi_context.query_whether_formula_entails_phi(cur_expanded_covering):
+                    # predicate p can be removed from theta
+                    continue
+                # the expanding formula doesn't entail phi
+                # hence, it is crucial to keep p
+                theta_expanded.append(p)
 
-        _logger.info("Theta expanded: %s", theta_expanded)
-        return z3.And(*theta_expanded)
+            _logger.info("Theta expanded: %s", theta_expanded)
+            return z3.And(*theta_expanded)
 
-    _logger.info("Heuristic fail: Theta does not entail phi, computing the sound and complete covering...")
-    # the heuristic failed, so we compute the sound and complete covering
+        _logger.info("Heuristic fail: Theta does not entail phi, computing the sound and complete covering...")
+        # the heuristic failed, so we compute the sound and complete covering
 
     delta = []
     upsilon_lt_gt = []
@@ -353,7 +355,8 @@ def cover(
                     phi_context,
                     rec_model,
                     gamma_additional_constraints + [w_pred_constraint],
-                    debug_mode=debug_mode
+                    debug_mode=debug_mode,
+                    use_heuristics=use_heuristics
                 )
 
                 delta.append(rec_cover)
@@ -405,7 +408,7 @@ def cover(
     return decomposition
 
 
-def vardec(phi, x: list, y: list, debug_mode=True):
+def vardec(phi, x: list, y: list, debug_mode=True, use_heuristics=True):
 
     context = VarDecContext(x, y)
     phi_context = FormulaContext(phi, context)
@@ -417,7 +420,7 @@ def vardec(phi, x: list, y: list, debug_mode=True):
 
     while global_solver.check() == z3.sat:
         gamma_model = global_solver.model()
-        psi = cover(context, phi_context, gamma_model, debug_mode=debug_mode)
+        psi = cover(context, phi_context, gamma_model, debug_mode=debug_mode, use_heuristics=use_heuristics)
 
         _logger.info("Covering algorithm produced psi:\n%s", psi)
 
