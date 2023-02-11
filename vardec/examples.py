@@ -16,17 +16,6 @@ def test_1():
     return phi, [x], [y]
 
 
-def simple_line_inference():
-    x, y = Reals("x y")
-
-    phi = And(
-        y == 10,
-        x + y <= 15
-    )
-
-    return phi, [x], [y]
-
-
 def _addition_formula(n: int):
 
     xy = Reals("x " + " ".join("y_%d" % (i + 1) for i in range(n)))
@@ -51,6 +40,29 @@ def addition_formula_3():
 
 def addition_formula_4():
     return _addition_formula(4)
+
+
+def addition_formula_5():
+    return _addition_formula(5)
+
+
+def addition_formula_6():
+    return _addition_formula(6)
+
+
+def addition_formula_7():
+    return _addition_formula(7)
+
+
+def simple_line_inference():
+    x, y = Reals("x y")
+
+    phi = And(
+        y == 10,
+        x + y <= 15
+    )
+
+    return phi, [x], [y]
 
 
 def decomposable_x_complex_border():

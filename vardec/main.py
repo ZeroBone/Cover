@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from inspect import isfunction, getmodule
 
+import z3
+
 import examples
 from vardec import vardec
 from z3_utils import is_valid
@@ -83,6 +85,8 @@ def _main():
         print(s)
 
     _logger.info("=" * 51)
+
+    decomposition = z3.simplify(decomposition, elim_sign_ext=False, local_ctx=True)
 
     _logger.info("Variable decomposition:\n%s", decomposition)
 
