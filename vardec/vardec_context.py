@@ -18,6 +18,8 @@ class VarDecContext:
         self._stat_cover_calls = 0
         self._stat_indistinguishable_disjuncts_count = 0
         self._stat_distinguishable_disjuncts_count = 0
+        self._stat_heuristic_success_count = 0
+        self._stat_heuristic_fail_count = 0
         assert set(self._x).isdisjoint(set(self._y))
 
     def variable_count(self) -> int:
@@ -120,11 +122,21 @@ class VarDecContext:
     def stat_on_indistinguishable_disjunct(self):
         self._stat_indistinguishable_disjuncts_count += 1
 
+    def stat_on_heuristic_success(self):
+        self._stat_heuristic_success_count += 1
+
+    def stat_on_heuristic_fail(self):
+        self._stat_heuristic_fail_count += 1
+
     def print_stats(self) -> str:
-        print("Statistics:")
+        print("=== [Statistics] ===")
         print("Cover calls: %d" % self._stat_cover_calls)
         print("Distinguishable disjunct count: %d" % self._stat_distinguishable_disjuncts_count)
         print("Indistinguishable disjunct count: %d" % self._stat_indistinguishable_disjuncts_count)
+        print(
+            "Heuristic success rate: %d/%d" %
+            (self._stat_heuristic_success_count, self._stat_heuristic_success_count + self._stat_heuristic_fail_count)
+        )
 
 
 def block_str(block: int, /) -> str:

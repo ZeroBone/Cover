@@ -173,6 +173,7 @@ def cover(
 
         if phi_context.query_whether_formula_entails_phi(z3.And(*theta)):
             _logger.info("Heuristic success: Theta entails phi, so we can cover entire Theta")
+            context.stat_on_heuristic_success()
             # try to expand even further
             theta_expanded = []
             while len(theta) > 0:
@@ -189,6 +190,7 @@ def cover(
             return z3.And(*theta_expanded)
 
         _logger.info("Heuristic fail: Theta does not entail phi, computing the sound and complete covering...")
+        context.stat_on_heuristic_fail()
         # the heuristic failed, so we compute the sound and complete covering
 
     delta = []

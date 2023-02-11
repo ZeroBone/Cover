@@ -29,7 +29,7 @@ def _main():
 
     print("Verbose mode: %s" % ("enabled" if verbose_mode else "disabled"))
     print("Debug mode: %s" % ("enabled" if debug_mode else "disabled"))
-    print("Using heuristics: %s" % ("enabled" if use_heuristics else "disabled"))
+    print("Using heuristics: %s" % ("yes" if use_heuristics else "no"))
 
     _logger.setLevel(logging.DEBUG if verbose_mode else logging.INFO)
 
@@ -72,12 +72,14 @@ def _main():
     _logger.info(("=" * 20) + " [RESULT] " + ("=" * 20))
 
     if decomposition is None:
+        print("=== [Result] ===")
         print("Verdict: phi is not Pi-decomposable (see logs for the details)")
         _logger.info("Verdict: phi is not Pi-decomposable")
         _logger.info("=" * 51)
         context.print_stats()
         return
 
+    print("=== [Result] ===")
     print("Verdict: phi is Pi-decomposable")
     _logger.info("Verdict: phi is Pi-decomposable")
 
