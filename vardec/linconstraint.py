@@ -15,7 +15,7 @@ class LinearConstraint:
         self._lhs_linear_combination = lhs_linear_combination
         self._rhs_constant = rhs_constant
 
-    def _linear_combination_expr(self, context: VarDecContext, /):
+    def get_lhs_linear_combination_expr(self, context: VarDecContext, /):
         return z3.Sum(*(
             coeff * context.index_to_variable(variable_id)
             for variable_id, coeff in enumerate(self._lhs_linear_combination) if coeff != 0
@@ -23,6 +23,9 @@ class LinearConstraint:
 
     def get_lin_combination_copy(self) -> np.ndarray:
         return self._lhs_linear_combination.copy()
+
+    def get_rhs_constrant(self) -> Rational:
+        return self._rhs_constant
 
     def model_satisfies_equality_version(self, model_vec: np.ndarray):
         lhs_value = np.dot(self._lhs_linear_combination, model_vec)
@@ -34,7 +37,7 @@ class LinearConstraint:
 
         lhs_value = np.dot(self._lhs_linear_combination, model_vec)
 
-        lin_comb_z3 = self._linear_combination_expr(context)
+        lin_comb_z3 = self.get_lhs_linear_combination_expr(context)
 
         if lhs_value < self._rhs_constant:
             return lin_comb_z3 < self._rhs_constant
@@ -45,7 +48,7 @@ class LinearConstraint:
         return lin_comb_z3 == self._rhs_constant
 
     def get_equality_expr(self, context: VarDecContext):
-        lin_comb_z3 = self._linear_combination_expr(context)
+        lin_comb_z3 = self.get_lhs_linear_combination_expr(context)
         return lin_comb_z3 == self._rhs_constant
 
     def __hash__(self) -> int:

@@ -46,6 +46,13 @@ class VarDecContext:
             return vec[len(self._x):]
         assert False
 
+    def project_vector_back_from_block(self, vec: np.ndarray, block: int, /) -> np.ndarray:
+        if block == VarDecContext.X:
+            return np.concatenate((vec, np.zeros(len(self._x), dtype=Fraction)))
+        if block == VarDecContext.Y:
+            return np.concatenate((np.zeros(len(self._y), dtype=Fraction), vec))
+        assert False
+
     def project_matrix_onto_block(self, mat: np.ndarray, block: int, /) -> np.ndarray:
         """ Project a one-dimensional vector onto the specified block of the partition """
         if block == VarDecContext.X:

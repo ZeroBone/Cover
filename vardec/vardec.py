@@ -47,8 +47,6 @@ def _matrix_add_zero_row_if_empty(mat: np.ndarray, mat_cols: int, /):
     return mat
 
 
-# TODO: make sure all constaints are instances of the linear constraints class (including pi-simple predicates)
-# TODO: refactor code such that it is never duplicated for X and for Y
 # TODO: support debug mode and perform assertions only there
 # TODO: implement simplification of formulas
 
@@ -245,7 +243,7 @@ def cover(
                 lindep_diff[b]
             )
 
-        w_predicate = None
+        w_pred_constraint = None
 
         for b in VarDecContext.X, VarDecContext.Y:
             for w in np.transpose(lindep_diff[b]):
@@ -257,14 +255,20 @@ def cover(
                     block_str(b),
                     w
                 )
-                w_predicate = context.block_linear_comb_to_expr(w, b), np.dot(omega_model_vec_proj[b], w)
+
+                w_pred_constraint = LinearConstraint(
+                    context.project_vector_back_from_block(w, b),
+                    np.dot(omega_model_vec_proj[b], w)
+                )
+
                 break
 
-            if w_predicate is not None:
+            if w_pred_constraint is not None:
                 break
 
-        if w_predicate is not None:
-            w_lhs, w_rhs = w_predicate
+        if w_pred_constraint is not None:
+            w_lhs = w_pred_constraint.get_lhs_linear_combination_expr(context)
+            w_rhs = w_pred_constraint.get_rhs_constrant()
 
             _logger.info("Witness predicate: %s", w_lhs == w_rhs)
 
@@ -302,7 +306,7 @@ def cover(
                     context,
                     phi_context,
                     rec_model,
-                    gamma_additional_constraints + [predicate_to_linear_constraint(context, w_lhs == w_rhs)]
+                    gamma_additional_constraints + [w_pred_constraint]
                 )
 
                 delta.append(rec_cover)
