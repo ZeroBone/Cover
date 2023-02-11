@@ -5,7 +5,7 @@ import numpy as np
 import z3 as z3
 from z3 import ExprRef, RatNumRef
 
-from context import VarDecContext
+from vardec_context import VarDecContext
 from z3_utils import is_uninterpreted_variable
 
 

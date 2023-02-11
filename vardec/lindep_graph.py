@@ -5,7 +5,7 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
-from context import VarDecContext
+from vardec_context import VarDecContext
 from gauss import compute_kernel, check_image_space_inclusion
 from vardec import FormulaContext
 
