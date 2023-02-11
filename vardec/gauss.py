@@ -141,7 +141,7 @@ def check_image_space_equality(a_mat: np.ndarray, b_mat: np.ndarray):
     return check_image_space_inclusion(a_mat, b_mat) and check_image_space_inclusion(b_mat, a_mat)
 
 
-def compute_gen_set_of_intersection_of_mat_images(a_mat: np.ndarray, b_mat: np.ndarray):
+def compute_gen_set_of_intersection_of_mat_images(a_mat: np.ndarray, b_mat: np.ndarray, /, *, debug_mode: bool = True):
     """ Computes a set of vectors generating im(a_mat) intersected with im(b_mat) """
     assert a_mat.shape[0] == b_mat.shape[0]
 
@@ -158,8 +158,9 @@ def compute_gen_set_of_intersection_of_mat_images(a_mat: np.ndarray, b_mat: np.n
 
     gen_set = a_mat @ u_mat_ker_lincomb_deps
 
-    assert check_image_space_inclusion(gen_set, a_mat)
-    assert check_image_space_inclusion(gen_set, b_mat)
+    if debug_mode:
+        assert check_image_space_inclusion(gen_set, a_mat)
+        assert check_image_space_inclusion(gen_set, b_mat)
 
     return gen_set
 

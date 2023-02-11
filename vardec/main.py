@@ -64,7 +64,7 @@ def _main():
         ", ".join(str(y_var) for y_var in y),
     )
 
-    decomposition = vardec(phi, x, y, debug_mode, use_heuristics)
+    decomposition, context = vardec(phi, x, y, debug_mode, use_heuristics)
 
     _logger.info(("=" * 20) + " [RESULT] " + ("=" * 20))
 
@@ -72,6 +72,7 @@ def _main():
         print("Verdict: phi is not Pi-decomposable (see logs for the details)")
         _logger.info("Verdict: phi is not Pi-decomposable")
         _logger.info("=" * 51)
+        context.print_stats()
         return
 
     print("Verdict: phi is Pi-decomposable")
@@ -91,6 +92,8 @@ def _main():
     decomposition = z3.simplify(decomposition, elim_sign_ext=False, local_ctx=True)
 
     _logger.info("Variable decomposition:\n%s", decomposition)
+
+    context.print_stats()
 
 
 if __name__ == '__main__':

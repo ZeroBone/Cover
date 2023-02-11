@@ -15,6 +15,9 @@ class VarDecContext:
     def __init__(self, x: list, y: list, /):
         self._x = x
         self._y = y
+        self._stat_cover_calls = 0
+        self._stat_indistinguishable_disjuncts_count = 0
+        self._stat_distinguishable_disjuncts_count = 0
         assert set(self._x).isdisjoint(set(self._y))
 
     def variable_count(self) -> int:
@@ -102,6 +105,21 @@ class VarDecContext:
             model_vec[i] = var_val
 
         return model_vec
+
+    def stat_on_cover_call(self):
+        self._stat_cover_calls += 1
+
+    def stat_on_distinguishable_disjunct(self):
+        self._stat_distinguishable_disjuncts_count += 1
+
+    def stat_on_indistinguishable_disjunct(self):
+        self._stat_indistinguishable_disjuncts_count += 1
+
+    def print_stats(self) -> str:
+        print("Statistics:")
+        print("Cover calls: %d" % self._stat_cover_calls)
+        print("Distinguishable disjunct count: %d" % self._stat_distinguishable_disjuncts_count)
+        print("Indistinguishable disjunct count: %d" % self._stat_indistinguishable_disjuncts_count)
 
 
 def block_str(block: int, /) -> str:

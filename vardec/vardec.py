@@ -35,6 +35,7 @@ def cover(
 ):
 
     _logger.info("=== [Covering algorithm] ===")
+    context.stat_on_cover_call()
 
     if gamma_additional_constraints is None:
         gamma_additional_constraints = []
@@ -205,7 +206,9 @@ def cover(
 
         # translate the computed indices of constraints into actual constraints
         omega_eq_constraints = [
-            phi_context.constraints[i].get_equality_expr(context) for i in omega_eq_constraint_indices
+            *(phi_context.constraints[i].get_equality_expr(context) for i in omega_eq_constraint_indices),
+            # TODO: consider this
+            # *(constraint.get_equality_expr(context) for constraint in gamma_additional_constraints)
         ]
 
         _logger.debug("Omega equality constraints: %s", omega_eq_constraints)
@@ -214,7 +217,9 @@ def cover(
 
         omega_eq_constraint_mat = _matrix_add_zero_row_if_empty(
             np.array([
-                phi_context.constraints[i].get_lin_combination_copy() for i in omega_eq_constraint_indices
+                *(phi_context.constraints[i].get_lin_combination_copy() for i in omega_eq_constraint_indices),
+                # TODO: consider this
+                # *(constraint.get_lin_combination_copy() for constraint in gamma_additional_constraints)
             ], dtype=Fraction),
             context.variable_count()
         )
@@ -240,7 +245,8 @@ def cover(
 
         lindep_diff = tuple(
             compute_gen_set_of_intersection_of_mat_images(
-                omega_eq_constraint_mat_lindep[b], gamma_eq_constraint_mat_ker_proj[b]
+                omega_eq_constraint_mat_lindep[b], gamma_eq_constraint_mat_ker_proj[b],
+                debug_mode=debug_mode
             )
             for b in (VarDecContext.X, VarDecContext.Y)
         )
@@ -279,6 +285,9 @@ def cover(
                 break
 
         if w_pred_constraint is not None:
+
+            context.stat_on_distinguishable_disjunct()
+
             w_lhs = w_pred_constraint.get_lhs_linear_combination_expr(context)
             w_rhs = w_pred_constraint.get_rhs_constrant()
 
@@ -330,6 +339,8 @@ def cover(
                 _logger.info("Gamma together with the witness predicate is unsatisfiable, no recursion happens.")
 
         else:
+            context.stat_on_indistinguishable_disjunct()
+
             _logger.info(
                 "The current disjunct Omega cannot be distinguished from Gamma in the language of Pi-decompositions"
             )
@@ -407,4 +418,4 @@ def vardec(phi, x: list, y: list, debug_mode=True, use_heuristics=True):
         phi_dec.append(psi)
         global_solver.add(z3.Not(psi))
 
-    return z3.Or(*phi_dec)
+    return z3.Or(*phi_dec), context
