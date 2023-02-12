@@ -6,6 +6,7 @@ from typing import List
 import numpy as np
 import z3
 
+from observer import DummyObserver, CoveringObserver
 from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext
 from gauss import compute_kernel, compute_gen_set_of_intersection_of_mat_images
@@ -31,7 +32,8 @@ def cover(
     gamma_model,
     gamma_additional_eq_constraints: List[LinearConstraint] = None, /, *,
     debug_mode: bool = True,
-    use_heuristics: bool = True
+    use_heuristics: bool = True,
+    observer: CoveringObserver = DummyObserver()
 ):
 
     _logger.info("=== [Covering algorithm] ===")
@@ -75,29 +77,34 @@ def cover(
 
     _logger.info("Initialized Theta to be the set of Pi-respecting predicates in Gamma, that is:\nTheta = %s", theta)
 
-    gamma_eq_constraint_indices = [
+    # ids' of equality constraints in Gamma, which originate in phi
+    gamma_eq_constraint_from_phi_indices = [
         i for i, constraint in enumerate(phi_context.constraints)
         if constraint.model_satisfies_equality_version(gamma_model_vec)
     ]
 
     if debug_mode:
         assert is_sat(z3.And(*gamma))
-        assert is_valid(z3.Implies(z3.And(*(v == gamma_model[v] for v in gamma_model)), z3.And(*gamma)))
+        assert is_valid(z3.Implies(
+            context.vector_to_enforcing_expr(gamma_model_vec),
+            z3.And(*gamma)
+        ))
         _logger.debug("Gamma: %s", gamma)
-        _logger.debug("Equality constraint id's: %s", gamma_eq_constraint_indices)
+        _logger.debug(
+            "Id's of equality constraints in Gamma which originate in phi: %s",
+            gamma_eq_constraint_from_phi_indices
+        )
 
     # compute the equality constraints matrix
-
     gamma_eq_constraint_mat = _matrix_add_zero_row_if_empty(
         np.array([
-            *(phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_indices),
+            *(phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_from_phi_indices),
             *(constraint.get_lin_combination_copy() for constraint in gamma_additional_eq_constraints)
         ], dtype=Fraction),
         context.variable_count()
     )
 
-    if debug_mode:
-        _logger.debug("Gamma equality constraint matrix:\n%s", gamma_eq_constraint_mat)
+    _logger.debug("Gamma equality constraint matrix:\n%s", gamma_eq_constraint_mat)
 
     # compute the kernel of the equality constraints matrix
 
@@ -127,6 +134,8 @@ def cover(
                 *(z3.substitute(p, *sigma) for p in gamma),
                 *(var == val for var, val in sigma)
             )
+
+            observer.on_cover_init_and_ret_pi_simple()
 
             if debug_mode:
                 assert is_valid(decomposition == z3.And(*gamma))
@@ -167,6 +176,8 @@ def cover(
             z3.And(*(ct.get_equality_expr(context) for ct in theta_equality_linear_constraints))
         ))
 
+    observer.on_cover_init_pi_complex()
+
     if use_heuristics:
         # now we try to cover Gamma in a very agressive manner, for which model flooding doesn't hold
         # this is an optional heuristic designed to improve the performance
@@ -187,6 +198,10 @@ def cover(
                 theta_expanded.append(p)
 
             _logger.info("Theta expanded: %s", theta_expanded)
+
+            if debug_mode:
+                assert phi_context.query_whether_formula_entails_phi(z3.And(*theta_expanded))
+
             return z3.And(*theta_expanded)
 
         _logger.info("Heuristic fail: Theta does not entail phi, computing the sound and complete covering...")

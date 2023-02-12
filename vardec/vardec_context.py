@@ -1,5 +1,6 @@
 from fractions import Fraction
 from typing import Iterable
+import itertools
 
 import numpy as np
 from z3 import z3
@@ -101,7 +102,7 @@ class VarDecContext:
 
         model_vec = np.zeros((self.variable_count()), dtype=Fraction)
 
-        for i, v in enumerate(self._x + self._y):
+        for i, v in enumerate(itertools.chain(self._x, self._y)):
 
             var_val = Fraction(0)
 
@@ -112,6 +113,12 @@ class VarDecContext:
             model_vec[i] = var_val
 
         return model_vec
+
+    def vector_to_enforcing_expr(self, vec: np.ndarray):
+        return z3.And(*(
+            var == vec[var_id]
+            for var_id, var in enumerate(itertools.chain(self._x, self._y))
+        ))
 
     def stat_on_cover_call(self):
         self._stat_cover_calls += 1
