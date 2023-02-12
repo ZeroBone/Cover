@@ -38,7 +38,7 @@ class VarDecContext:
 
     def variable_to_index(self, var, /) -> int:
 
-        for i, v in enumerate(self._x + self._y):
+        for i, v in enumerate(itertools.chain(self._x, self._y)):
             if v == var:
                 return i
 
