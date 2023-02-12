@@ -29,7 +29,7 @@ def cover(
     context: VarDecContext,
     phi_context: FormulaContext,
     gamma_model,
-    gamma_additional_constraints: List[LinearConstraint] = None, /, *,
+    gamma_additional_eq_constraints: List[LinearConstraint] = None, /, *,
     debug_mode: bool = True,
     use_heuristics: bool = True
 ):
@@ -37,13 +37,13 @@ def cover(
     _logger.info("=== [Covering algorithm] ===")
     context.stat_on_cover_call()
 
-    if gamma_additional_constraints is None:
-        gamma_additional_constraints = []
+    if gamma_additional_eq_constraints is None:
+        gamma_additional_eq_constraints = []
 
     if debug_mode:
         _logger.debug(
             "Additional constraints: %s",
-            [constraint.get_equality_expr(context) for constraint in gamma_additional_constraints]
+            [constraint.get_equality_expr(context) for constraint in gamma_additional_eq_constraints]
         )
 
     gamma_model_vec = context.model_to_vec(gamma_model)
@@ -57,18 +57,18 @@ def cover(
 
     gamma = [
         *(ct.get_version_satisfying_model(context, gamma_model_vec) for ct in phi_context.constraints),
-        *(ct.get_equality_expr(context) for ct in gamma_additional_constraints)
+        *(ct.get_equality_expr(context) for ct in gamma_additional_eq_constraints)
     ]
 
     if debug_mode:
-        for ct in gamma_additional_constraints:
+        for ct in gamma_additional_eq_constraints:
             assert ct.respects_pi(context)
 
     # choose predicates respecting the partition
     theta_equality_linear_constraints = [
         *(ct for ct in phi_context.constraints if
             ct.model_satisfies_equality_version(gamma_model_vec) and ct.respects_pi(context)),
-        *gamma_additional_constraints
+        *gamma_additional_eq_constraints
     ]
 
     theta = [p for p in gamma if context.predicate_respects_pi(p)]
@@ -91,7 +91,7 @@ def cover(
     gamma_eq_constraint_mat = _matrix_add_zero_row_if_empty(
         np.array([
             *(phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_indices),
-            *(constraint.get_lin_combination_copy() for constraint in gamma_additional_constraints)
+            *(constraint.get_lin_combination_copy() for constraint in gamma_additional_eq_constraints)
         ], dtype=Fraction),
         context.variable_count()
     )
@@ -203,14 +203,16 @@ def cover(
     while disjunct_solver.check() == z3.sat:
         omega_model = disjunct_solver.model()
         omega_model_vec = context.model_to_vec(omega_model)
-        omega_model_vec_proj = context.project_vector_onto_block(omega_model_vec, VarDecContext.X), \
-            context.project_vector_onto_block(omega_model_vec, VarDecContext.Y)
+        omega_model_vec_proj = tuple(
+            context.project_vector_onto_block(omega_model_vec, b)
+            for b in (VarDecContext.X, VarDecContext.Y)
+        )
 
         _logger.info("Found new disjunct Omega corresponding to model %s", omega_model_vec)
 
         # determine the equality constraints the disjunct containing the model satisfies
-
         omega_eq_constraint_indices = []
+        # id's of constraints, such that their <, or > version is true under the model, but not the = version
         not_omega_eq_constraint_indices = []
 
         for i, constraint in enumerate(phi_context.constraints):
@@ -273,6 +275,7 @@ def cover(
                     lindep_diff[b]
                 )
 
+        # TODO: consider iterating over all possible w predicates and choosing the one which doesn't require splitting
         w_pred_constraint = None
 
         for b in VarDecContext.X, VarDecContext.Y:
@@ -320,6 +323,7 @@ def cover(
             w_predicate_lt = w_lhs < w_rhs
             w_predicate_gt = w_lhs > w_rhs
 
+            # TODO: optimize
             if is_valid(z3.Implies(z3.And(*gamma), w_predicate_lt)):
                 _logger.info("Excellent! Gamma entails the < version of the witness predicate.")
                 disjunct_solver.add(w_predicate_lt)
@@ -349,7 +353,7 @@ def cover(
                     context,
                     phi_context,
                     rec_model,
-                    gamma_additional_constraints + [w_pred_constraint],
+                    gamma_additional_eq_constraints + [w_pred_constraint],
                     debug_mode=debug_mode,
                     use_heuristics=use_heuristics
                 )
