@@ -159,6 +159,7 @@ def cover(
         # iterate over the columns of the matrix
         for lin_dependency_witness in np.transpose(gamma_eq_constraint_mat_lindep[b]):
 
+            # noinspection PyTypeChecker
             lin_dependency_constraint = LinearConstraint(
                 context.project_vector_back_from_block(lin_dependency_witness, b),
                 np.dot(gamma_model_vec_proj[b], lin_dependency_witness)
@@ -307,6 +308,7 @@ def cover(
                     w
                 )
 
+                # noinspection PyTypeChecker
                 w_pred_constraint = LinearConstraint(
                     context.project_vector_back_from_block(w, b),
                     np.dot(omega_model_vec_proj[b], w)
