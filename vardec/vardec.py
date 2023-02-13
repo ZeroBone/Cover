@@ -6,6 +6,7 @@ from typing import List
 import numpy as np
 import z3
 
+from domain_disjuncts import compute_all_disjuncts
 from observer import DummyObserver, CoveringObserver
 from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext
@@ -430,6 +431,10 @@ def vardec(phi, x: list, y: list, /, *, debug_mode=True, use_heuristics=True, co
         context = VarDecContext(x, y)
 
     phi_context = FormulaContext(phi, context)
+
+    # TODO: remove this temporary patch
+    compute_all_disjuncts(context, phi_context, [], True)
+    return None
 
     phi_dec = []
 

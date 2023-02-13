@@ -55,14 +55,8 @@ def fixes_var(psi, var):
 
     model = s.model()
 
-    # print(model)
-    # print(model[var])
-
     if model[var] is None:
-        print("WARN: variable is not in the model")
         return False
-
-    # print(z3.And(psi, var != model[var]))
 
     return is_unsat(z3.And(psi, var != model[var]))
 
