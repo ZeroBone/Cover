@@ -284,3 +284,12 @@ def strict_inequality_inference():
         y_1 == 0,
         Or(x_1 - y_2 != 0, x_1 + y_2 != 0)
     ), [x_1, x_2], [y_1, y_2]
+
+
+def false_point():
+    x, y = Reals("x y")
+
+    return Or(
+        x - y != 0,
+        x + y != 0
+    ), [x], [y]

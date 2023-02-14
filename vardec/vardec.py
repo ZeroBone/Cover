@@ -6,7 +6,6 @@ from typing import List
 import numpy as np
 import z3
 
-from disjunct_graph import compute_all_disjuncts
 from observer import DummyObserver, CoveringObserver
 from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext
@@ -294,8 +293,11 @@ def cover(
                     lindep_diff[b]
                 )
 
-        # TODO: consider iterating over all possible w predicates and choosing the one which doesn't require splitting
         w_pred_constraint = None
+
+        # this variable will be set to True iff we will find a predicate in the loop below,
+        # such that Gamma entails either the < or the > version of it
+        nice_predicate_found = False
 
         for b in VarDecContext.X, VarDecContext.Y:
             for w in np.transpose(lindep_diff[b]):
@@ -316,9 +318,23 @@ def cover(
                     np.dot(omega_model_vec_proj[b], w)
                 )
 
-                break
+                w_lhs = w_pred_constraint.get_lhs_linear_combination_expr(context)
+                w_rhs = w_pred_constraint.get_rhs_constrant()
 
-            if w_pred_constraint is not None:
+                if is_valid(z3.Implies(z3.And(*gamma), w_lhs < w_rhs)):
+                    _logger.info("Excellent! Gamma entails the < version of the witness predicate.")
+                    disjunct_solver.add(w_lhs < w_rhs)
+                    upsilon_lt_gt.append(w_lhs < w_rhs)
+                    nice_predicate_found = True
+                    break
+                elif is_valid(z3.Implies(z3.And(*gamma), w_lhs > w_rhs)):
+                    _logger.info("Excellent! Gamma entails the > version of the witness predicate.")
+                    disjunct_solver.add(w_lhs > w_rhs)
+                    upsilon_lt_gt.append(w_lhs > w_rhs)
+                    nice_predicate_found = True
+                    break
+
+            if nice_predicate_found:
                 break
 
         if w_pred_constraint is not None:
@@ -340,19 +356,7 @@ def cover(
                 assert is_sat(_omega_eq)
                 assert is_valid(z3.Implies(_omega_eq, w_lhs == w_rhs))
 
-            w_predicate_lt = w_lhs < w_rhs
-            w_predicate_gt = w_lhs > w_rhs
-
-            # TODO: optimize
-            if is_valid(z3.Implies(z3.And(*gamma), w_predicate_lt)):
-                _logger.info("Excellent! Gamma entails the < version of the witness predicate.")
-                disjunct_solver.add(w_predicate_lt)
-                upsilon_lt_gt.append(w_predicate_lt)
-            elif is_valid(z3.Implies(z3.And(*gamma), w_predicate_gt)):
-                _logger.info("Excellent! Gamma entails the > version of the witness predicate.")
-                disjunct_solver.add(w_predicate_gt)
-                upsilon_lt_gt.append(w_predicate_gt)
-            else:
+            if not nice_predicate_found:
                 _logger.info("Gamma unfortunately entails neither the < nor the > version of the witness predicate.")
                 disjunct_solver.add(w_lhs != w_rhs)
                 upsilon_neq.append((w_lhs, w_rhs))
@@ -436,9 +440,7 @@ def vardec(phi, x: list, y: list, /, *, debug_mode=True, use_heuristics=True, co
 
     phi_context = FormulaContext(phi, context)
 
-    # TODO: remove this temporary patch
-    compute_all_disjuncts(context, phi_context, [], True)
-    return None
+    # compute_all_disjuncts(context, phi_context, [], True)
 
     phi_dec = []
 
