@@ -76,6 +76,9 @@ def compute_kernel(a: np.ndarray) -> np.ndarray:
 
     not_leading_columns = rref(a)
 
+    if len(not_leading_columns) == 0:
+        return np.zeros((n, 1), dtype=Fraction)
+
     span = np.empty((n, len(not_leading_columns)), dtype=Fraction)
 
     span_column = 0
