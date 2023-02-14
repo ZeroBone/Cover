@@ -4,6 +4,7 @@ from fractions import Fraction
 from typing import List
 
 import graphviz
+import networkx as nx
 import numpy as np
 import z3
 
@@ -176,23 +177,8 @@ class _DisjunctGraphBuilder:
 
     def create_group_graph(self) -> graphviz.Digraph:
 
-        g = graphviz.Digraph(
-            "G",
-            filename="generated_figures/group.gv",
-            graph_attr={"rankdir": "LR"},
-            node_attr={
-                "shape": "record",
-                "fontsize": "5pt",
-                "margin": "0.01",
-                "width": "0.1",
-                "height": "0.1"
-            }
-        )
-
-        group_label_pattern = "group_%03d"
-
-        for group in self._disjunct_groups:
-            g.node(group_label_pattern % group.group_id, group.get_graphviz_group_node_label())
+        x_edges = []
+        y_edges = []
 
         for first_group in self._disjunct_groups:
             first_group_id = first_group.group_id
@@ -247,19 +233,51 @@ class _DisjunctGraphBuilder:
 
                 if first_strict_subspace_of_second_wrt_x:
                     # first has more linear dependencies compared to second wrt x
-                    g.edge(group_label_pattern % second_group_id, group_label_pattern % first_group_id, label="x")
+                    x_edges.append((second_group_id, first_group_id))
 
                 if first_strict_subspace_of_second_wrt_y:
                     # first has more linear dependencies compared to second wrt y
-                    g.edge(group_label_pattern % second_group_id, group_label_pattern % first_group_id, label="y")
+                    y_edges.append((second_group_id, first_group_id))
 
                 if second_strict_subspace_of_first_wrt_x:
                     # second has more linear dependencies compared to first wrt x
-                    g.edge(group_label_pattern % first_group_id, group_label_pattern % second_group_id, label="x")
+                    x_edges.append((first_group_id, second_group_id))
 
                 if second_strict_subspace_of_first_wrt_y:
                     # second has more linear dependencies compared to first wrt y
-                    g.edge(group_label_pattern % first_group_id, group_label_pattern % second_group_id, label="y")
+                    y_edges.append((first_group_id, second_group_id))
+
+        ng_x = nx.DiGraph()
+        ng_x.add_edges_from(x_edges)
+        ng_x = nx.transitive_reduction(ng_x)
+
+        ng_y = nx.DiGraph()
+        ng_y.add_edges_from(y_edges)
+        ng_y = nx.transitive_reduction(ng_y)
+
+        g = graphviz.Digraph(
+            "G",
+            filename="generated_figures/group.gv",
+            graph_attr={"rankdir": "LR"},
+            node_attr={
+                "shape": "record",
+                "fontsize": "5pt",
+                "margin": "0.01",
+                "width": "0.1",
+                "height": "0.1"
+            }
+        )
+
+        group_label_pattern = "group_%03d"
+
+        for group in self._disjunct_groups:
+            g.node(group_label_pattern % group.group_id, group.get_graphviz_group_node_label())
+
+        for u, v in ng_x.edges:
+            g.edge(group_label_pattern % u, group_label_pattern % v, label="X")
+
+        for u, v in ng_y.edges:
+            g.edge(group_label_pattern % u, group_label_pattern % v, label="Y")
 
         return g
 
