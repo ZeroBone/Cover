@@ -12,7 +12,7 @@ from formula_context import FormulaContext
 from linconstraint import LinearConstraint
 from gauss import compute_kernel, check_image_space_inclusion
 from vardec_context import VarDecContext
-from z3_utils import is_sat
+from z3_utils import is_sat, is_valid
 
 
 class _DisjunctKernelProjectedSolutionSpaces:
@@ -168,7 +168,7 @@ class _DisjunctGraphBuilder:
         self._disjunct_groups.append(_DisjunctGroup(new_group_id, eq_constraint_ids))
         self._group_table[eq_constraint_ids] = new_group_id
 
-    def add_disjunct(self, model_vec: np.ndarray, /):
+    def add_disjunct(self, model_vec: np.ndarray, phi_context: FormulaContext, /):
 
         eq_constraint_ids = self._model_vec_to_equality_constraint_ids(model_vec)
 
@@ -179,7 +179,14 @@ class _DisjunctGraphBuilder:
 
         group = self._disjunct_groups[self._group_table[eq_constraint_ids]]
 
-        group.add_disjunct_label(self._model_vec_to_label(model_vec), "red")
+        disjunct_entails_phi = phi_context.model_check(model_vec, self._context)
+
+        if disjunct_entails_phi:
+            assert is_valid(z3.Implies(z3.And(*self.model_vec_to_disjunct(model_vec)), phi_context.phi))
+        else:
+            assert is_valid(z3.Implies(z3.And(*self.model_vec_to_disjunct(model_vec)), z3.Not(phi_context.phi)))
+
+        group.add_disjunct_label(self._model_vec_to_label(model_vec), "green" if disjunct_entails_phi else "red")
 
     def create_group_graph(self) -> graphviz.Digraph:
 
@@ -321,7 +328,7 @@ def compute_all_disjuncts(
         disjunct = disj_graph_builder.model_vec_to_disjunct(disj_model_vec)
         assert is_sat(z3.And(*disjunct))
 
-        disj_graph_builder.add_disjunct(disj_model_vec)
+        disj_graph_builder.add_disjunct(disj_model_vec, phi_context)
 
         disj_count += 1
 

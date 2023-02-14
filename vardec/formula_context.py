@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import z3
 
 from vardec_context import VarDecContext
@@ -32,6 +33,11 @@ class FormulaContext:
 
         self._entailment_solver = z3.Solver()
         self._entailment_solver.add(z3.Not(phi))
+
+    def model_check(self, model_vec: np.ndarray, context: VarDecContext, /) -> bool:
+        return self.query_whether_formula_entails_phi(
+            context.vector_to_enforcing_expr(model_vec)
+        )
 
     def query_whether_formula_entails_phi(self, query_formula, /) -> bool:
         self._entailment_solver.push()
