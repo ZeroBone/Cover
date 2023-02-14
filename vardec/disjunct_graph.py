@@ -174,7 +174,7 @@ class _DisjunctGraphBuilder:
 
         group.add_disjunct_label(self._model_vec_to_label(model_vec))
 
-    def create_group_graph(self):
+    def create_group_graph(self) -> graphviz.Digraph:
 
         g = graphviz.Digraph(
             "G",
@@ -261,7 +261,7 @@ class _DisjunctGraphBuilder:
                     # second has more linear dependencies compared to first wrt y
                     g.edge(group_label_pattern % first_group_id, group_label_pattern % second_group_id, label="y")
 
-        g.view()
+        return g
 
 
 def compute_all_disjuncts(
@@ -293,4 +293,5 @@ def compute_all_disjuncts(
         ))
 
     print("Disjunct count: %d" % disj_count)
-    disj_graph_builder.create_group_graph()
+    g = disj_graph_builder.create_group_graph()
+    g.render("group.gv", "generated_figures", engine="dot", format="svg")
