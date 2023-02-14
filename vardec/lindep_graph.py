@@ -48,7 +48,7 @@ def build_lindep_graph(phi, x: list, y: list):
 
             # we now build the constraint matrix
             constraint_matrix = np.array([
-                phi_context.constraints[i].get_lin_combination_copy() for i in i_subset
+                phi_context.constraints[i].get_lhs_linear_combination_vector() for i in i_subset
             ], dtype=Fraction)
 
             _logger.debug("Constraint matrix: %s", constraint_matrix)

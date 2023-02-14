@@ -99,8 +99,9 @@ def cover(
     # compute the equality constraints matrix
     gamma_eq_constraint_mat = _matrix_add_zero_row_if_empty(
         np.array([
-            *(phi_context.constraints[i].get_lin_combination_copy() for i in gamma_eq_constraint_from_phi_indices),
-            *(constraint.get_lin_combination_copy() for constraint in gamma_additional_eq_constraints)
+            *(phi_context.constraints[i].get_lhs_linear_combination_vector()
+              for i in gamma_eq_constraint_from_phi_indices),
+            *(constraint.get_lhs_linear_combination_vector() for constraint in gamma_additional_eq_constraints)
         ], dtype=Fraction),
         context.variable_count()
     )
@@ -248,9 +249,9 @@ def cover(
         # compute the omega equality constraints matrix
         omega_eq_constraint_mat = _matrix_add_zero_row_if_empty(
             np.array([
-                *(phi_context.constraints[i].get_lin_combination_copy() for i in omega_eq_constraint_indices),
+                *(phi_context.constraints[i].get_lhs_linear_combination_vector() for i in omega_eq_constraint_indices),
                 # every omega contains all the equality predicates from theta
-                *(constraint.get_lin_combination_copy() for constraint in theta_equality_linear_constraints)
+                *(constraint.get_lhs_linear_combination_vector() for constraint in theta_equality_linear_constraints)
             ], dtype=Fraction),
             context.variable_count()
         )
@@ -259,9 +260,10 @@ def cover(
 
         omega_eq_constraint_mat_ker = compute_kernel(omega_eq_constraint_mat)
 
-        omega_eq_constraint_mat_ker_proj = \
-            context.project_matrix_onto_block(omega_eq_constraint_mat_ker, VarDecContext.X),\
-            context.project_matrix_onto_block(omega_eq_constraint_mat_ker, VarDecContext.Y),
+        omega_eq_constraint_mat_ker_proj = tuple(
+            context.project_matrix_onto_block(omega_eq_constraint_mat_ker, b)
+            for b in (VarDecContext.X, VarDecContext.Y)
+        )
 
         omega_eq_constraint_mat_lindep = tuple(
             compute_kernel(np.transpose(omega_eq_constraint_mat_ker_proj[b]))

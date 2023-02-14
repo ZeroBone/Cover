@@ -21,7 +21,7 @@ class LinearConstraint:
             for variable_id, coeff in enumerate(self._lhs_linear_combination) if coeff != 0
         ))
 
-    def get_lin_combination_copy(self) -> np.ndarray:
+    def get_lhs_linear_combination_vector(self) -> np.ndarray:
         return self._lhs_linear_combination.copy()
 
     def get_rhs_constrant(self) -> Rational:
