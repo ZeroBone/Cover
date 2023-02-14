@@ -54,6 +54,8 @@ class _DisjunctGroup:
 
     def get_graphviz_group_node_label(self) -> str:
 
+        self.disjunct_labels = sorted(self.disjunct_labels)
+
         def _escape_char(s):
             return s.replace("<", "&#60;").replace(">", "&#62;")
 

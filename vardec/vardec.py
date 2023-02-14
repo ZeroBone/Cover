@@ -6,6 +6,7 @@ from typing import List
 import numpy as np
 import z3
 
+from disjunct_graph import compute_all_disjuncts
 from observer import DummyObserver, CoveringObserver
 from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext
@@ -440,7 +441,7 @@ def vardec(phi, x: list, y: list, /, *, debug_mode=True, use_heuristics=True, co
 
     phi_context = FormulaContext(phi, context)
 
-    # compute_all_disjuncts(context, phi_context, [], True)
+    compute_all_disjuncts(context, phi_context, [], True)
 
     phi_dec = []
 
