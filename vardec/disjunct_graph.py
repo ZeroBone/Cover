@@ -1,4 +1,5 @@
 import itertools
+import math
 from fractions import Fraction
 from typing import List
 
@@ -51,9 +52,28 @@ class _DisjunctGroup:
         self.disjunct_labels.append(label)
 
     def get_graphviz_group_node_label(self) -> str:
-        return " | ".join(
-            dl.replace("<", "&#60;").replace(">", "&#62;") for dl in self.disjunct_labels
-        )
+
+        def _escape_char(s):
+            return s.replace("<", "&#60;").replace(">", "&#62;")
+
+        if len(self.disjunct_labels) <= 5:
+            return "|".join(
+                _escape_char(dl) for dl in self.disjunct_labels
+            )
+
+        columns = int(math.ceil(.6 * math.sqrt(len(self.disjunct_labels))))
+
+        cur_label_index = 0
+
+        rows = []
+
+        while cur_label_index < len(self.disjunct_labels):
+            rows.append("{%s}" % "|".join(
+                _escape_char(dl) for dl in self.disjunct_labels[cur_label_index:cur_label_index+columns]
+            ))
+            cur_label_index += columns
+
+        return "|".join(rows)
 
 
 class _DisjunctGraphBuilder:
@@ -160,7 +180,13 @@ class _DisjunctGraphBuilder:
             "G",
             filename="generated_figures/group.gv",
             graph_attr={"rankdir": "LR"},
-            node_attr={"shape": "record"}
+            node_attr={
+                "shape": "record",
+                "fontsize": "5pt",
+                "margin": "0.01",
+                "width": "0.1",
+                "height": "0.1"
+            }
         )
 
         group_label_pattern = "group_%03d"
