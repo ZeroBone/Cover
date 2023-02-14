@@ -49,19 +49,22 @@ class _DisjunctGroup:
     def get_repr_eq_ct_ids(self) -> frozenset:
         return self.eq_ct[0]
 
-    def add_disjunct_label(self, label: str):
-        self.disjunct_labels.append(label)
+    def add_disjunct_label(self, label: str, color: str, /):
+        self.disjunct_labels.append((label, color))
 
     def get_graphviz_group_node_label(self) -> str:
 
         self.disjunct_labels = sorted(self.disjunct_labels)
 
-        def _escape_char(s):
+        def _escape_char(s: str) -> str:
             return s.replace("<", "&#60;").replace(">", "&#62;")
 
+        def _compute_disjunct_html(label: str, color: str) -> str:
+            return "<font color='%s'>%s</font>" % (color, _escape_char(label))
+
         if len(self.disjunct_labels) <= 5:
-            return "|".join(
-                _escape_char(dl) for dl in self.disjunct_labels
+            return "<%s>" % "|".join(
+                _compute_disjunct_html(label, color) for label, color in self.disjunct_labels
             )
 
         columns = int(math.ceil(.6 * math.sqrt(len(self.disjunct_labels))))
@@ -72,11 +75,12 @@ class _DisjunctGroup:
 
         while cur_label_index < len(self.disjunct_labels):
             rows.append("{%s}" % "|".join(
-                _escape_char(dl) for dl in self.disjunct_labels[cur_label_index:cur_label_index+columns]
+                _compute_disjunct_html(label, color)
+                for label, color in self.disjunct_labels[cur_label_index:cur_label_index + columns]
             ))
             cur_label_index += columns
 
-        return "|".join(rows)
+        return "<%s>" % "|".join(rows)
 
 
 class _DisjunctGraphBuilder:
@@ -175,7 +179,7 @@ class _DisjunctGraphBuilder:
 
         group = self._disjunct_groups[self._group_table[eq_constraint_ids]]
 
-        group.add_disjunct_label(self._model_vec_to_label(model_vec))
+        group.add_disjunct_label(self._model_vec_to_label(model_vec), "red")
 
     def create_group_graph(self) -> graphviz.Digraph:
 
@@ -263,6 +267,7 @@ class _DisjunctGraphBuilder:
             graph_attr={"rankdir": "LR"},
             node_attr={
                 "shape": "record",
+                "fontname": "Courier New",
                 "fontsize": "7pt",
                 "margin": "0.01",
                 "width": "0.1",
