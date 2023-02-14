@@ -273,10 +273,22 @@ class _DisjunctGraphBuilder:
         for group in self._disjunct_groups:
             g.node(group_label_pattern % group.group_id, group.get_graphviz_group_node_label())
 
-        for u, v in ng_x.edges:
+        x_edges_set = set(ng_x.edges)
+        y_edges_set = set(ng_y.edges)
+
+        common_edges = x_edges_set.intersection(y_edges_set)
+
+        for u, v in common_edges:
+            g.edge(group_label_pattern % u, group_label_pattern % v, label="X, Y")
+
+        for u, v in x_edges_set:
+            if (u, v) in common_edges:
+                continue
             g.edge(group_label_pattern % u, group_label_pattern % v, label="X")
 
-        for u, v in ng_y.edges:
+        for u, v in y_edges_set:
+            if (u, v) in common_edges:
+                continue
             g.edge(group_label_pattern % u, group_label_pattern % v, label="Y")
 
         return g
