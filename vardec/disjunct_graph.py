@@ -261,7 +261,7 @@ class _DisjunctGraphBuilder:
             graph_attr={"rankdir": "LR"},
             node_attr={
                 "shape": "record",
-                "fontsize": "5pt",
+                "fontsize": "7pt",
                 "margin": "0.01",
                 "width": "0.1",
                 "height": "0.1"
@@ -279,7 +279,7 @@ class _DisjunctGraphBuilder:
         common_edges = x_edges_set.intersection(y_edges_set)
 
         for u, v in common_edges:
-            g.edge(group_label_pattern % u, group_label_pattern % v, label="X, Y")
+            g.edge(group_label_pattern % u, group_label_pattern % v, label="X,Y")
 
         for u, v in x_edges_set:
             if (u, v) in common_edges:
