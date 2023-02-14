@@ -1,2 +1,4 @@
 numpy~=1.24.2
 z3-solver
+graphviz
+matplotlib

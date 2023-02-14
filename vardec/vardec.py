@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import z3
 
-from domain_disjuncts import compute_all_disjuncts
+from disjunct_graph import compute_all_disjuncts
 from observer import DummyObserver, CoveringObserver
 from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext

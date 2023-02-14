@@ -11,6 +11,10 @@ from z3_utils import is_uninterpreted_variable
 
 class LinearConstraint:
 
+    PRED_LT = "<"
+    PRED_EQ = "="
+    PRED_GT = ">"
+
     def __init__(self, lhs_linear_combination: np.ndarray, rhs_constant: Rational, /):
         self._lhs_linear_combination = lhs_linear_combination
         self._rhs_constant = rhs_constant
@@ -32,6 +36,18 @@ class LinearConstraint:
         assert isinstance(lhs_value, Rational)
         assert isinstance(self._rhs_constant, Rational)
         return lhs_value == self._rhs_constant
+
+    def get_predicate_symbol_satisfying_model(self, model_vec: np.ndarray, /) -> str:
+
+        lhs_value = np.dot(self._lhs_linear_combination, model_vec)
+
+        if lhs_value < self._rhs_constant:
+            return LinearConstraint.PRED_LT
+
+        if lhs_value > self._rhs_constant:
+            return LinearConstraint.PRED_GT
+
+        return LinearConstraint.PRED_EQ
 
     def get_version_satisfying_model(self, context: VarDecContext, model_vec: np.ndarray, /):
 
