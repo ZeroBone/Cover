@@ -186,7 +186,10 @@ class _DisjunctGraphBuilder:
         else:
             assert is_valid(z3.Implies(z3.And(*self.model_vec_to_disjunct(model_vec)), z3.Not(phi_context.phi)))
 
-        group.add_disjunct_label(self._model_vec_to_label(model_vec), "green" if disjunct_entails_phi else "red")
+        group.add_disjunct_label(
+            self._model_vec_to_label(model_vec),
+            "green3" if disjunct_entails_phi else "red3"
+        )
 
     def create_group_graph(self) -> graphviz.Digraph:
 
