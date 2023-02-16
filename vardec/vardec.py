@@ -26,7 +26,7 @@ def _matrix_add_zero_row_if_empty(mat: np.ndarray, mat_cols: int, /):
     return mat
 
 
-def cover(
+def _cover(
     context: VarDecContext,
     phi_context: FormulaContext,
     gamma_model,
@@ -372,7 +372,7 @@ def cover(
                 )
 
                 # make sure that Gamma doesn't lose any models
-                rec_cover = cover(
+                rec_cover = _cover(
                     context,
                     phi_context,
                     rec_model,
@@ -455,7 +455,7 @@ def vardec(phi, x: list, y: list, /, *, context=None, visualizer: Visualizer = N
             cover_visualizer = visualizer.get_cover_visualizer_for_next_gamma(gamma_model)
             assert isinstance(cover_visualizer, ActualCoverVisualizer)
 
-        psi = cover(
+        psi = _cover(
             context,
             phi_context,
             gamma_model,
