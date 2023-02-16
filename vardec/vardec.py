@@ -6,8 +6,7 @@ from typing import List
 import numpy as np
 import z3
 
-from disjunct_graph import compute_all_disjuncts
-from observer import DummyObserver, CoveringObserver
+from visualizer import DummyCoverVisualizer, CoverVisualizer, Visualizer, ActualCoverVisualizer
 from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext
 from gauss import compute_kernel, compute_gen_set_of_intersection_of_mat_images
@@ -34,7 +33,7 @@ def cover(
     gamma_additional_eq_constraints: List[LinearConstraint] = None, /, *,
     debug_mode: bool = True,
     use_heuristics: bool = True,
-    observer: CoveringObserver = DummyObserver()
+    visualizer: CoverVisualizer = DummyCoverVisualizer()
 ):
 
     _logger.info("=== [Covering algorithm] ===")
@@ -67,13 +66,14 @@ def cover(
         for ct in gamma_additional_eq_constraints:
             assert ct.respects_pi(context)
 
-    # choose predicates respecting the partition
+    # choose equality predicates respecting the partition
     theta_equality_linear_constraints = [
         *(ct for ct in phi_context.constraints if
             ct.model_satisfies_equality_version(gamma_model_vec) and ct.respects_pi(context)),
         *gamma_additional_eq_constraints
     ]
 
+    # choose predicates respecting the partition
     theta = [p for p in gamma if context.predicate_respects_pi(p)]
 
     _logger.info("Initialized Theta to be the set of Pi-respecting predicates in Gamma, that is:\nTheta = %s", theta)
@@ -137,7 +137,7 @@ def cover(
                 *(var == val for var, val in sigma)
             )
 
-            observer.on_cover_init_and_ret_pi_simple()
+            visualizer.on_cover_init_and_ret_pi_simple()
 
             if debug_mode:
                 assert is_valid(decomposition == z3.And(*gamma))
@@ -179,7 +179,7 @@ def cover(
             z3.And(*(ct.get_equality_expr(context) for ct in theta_equality_linear_constraints))
         ))
 
-    observer.on_cover_init_pi_complex()
+    visualizer.on_cover_init_pi_complex(gamma_additional_eq_constraints, z3.And(*theta))
 
     if use_heuristics:
         # now we try to cover Gamma in a very agressive manner, for which model flooding doesn't hold
@@ -380,7 +380,8 @@ def cover(
                     rec_model,
                     gamma_additional_eq_constraints + [w_pred_constraint],
                     debug_mode=debug_mode,
-                    use_heuristics=use_heuristics
+                    use_heuristics=use_heuristics,
+                    visualizer=visualizer.create_visualizer_for_recursive_call()
                 )
 
                 delta.append(rec_cover)
@@ -434,14 +435,18 @@ def cover(
     return decomposition
 
 
-def vardec(phi, x: list, y: list, /, *, debug_mode=True, use_heuristics=True, context=None):
+def vardec(phi, x: list, y: list, /, *,
+           debug_mode=True, use_heuristics=True, context=None, visualizer: Visualizer = None):
 
     if context is None:
         context = VarDecContext(x, y)
 
     phi_context = FormulaContext(phi, context)
 
-    compute_all_disjuncts(context, phi_context, [], True)
+    if visualizer is not None:
+        visualizer.set_contexts(context, phi_context)
+
+    cover_visualizer = DummyCoverVisualizer()
 
     phi_dec = []
 
@@ -450,7 +455,19 @@ def vardec(phi, x: list, y: list, /, *, debug_mode=True, use_heuristics=True, co
 
     while global_solver.check() == z3.sat:
         gamma_model = global_solver.model()
-        psi = cover(context, phi_context, gamma_model, debug_mode=debug_mode, use_heuristics=use_heuristics)
+
+        if visualizer is not None:
+            cover_visualizer = visualizer.get_cover_visualizer_for_next_gamma(gamma_model)
+            assert isinstance(cover_visualizer, ActualCoverVisualizer)
+
+        psi = cover(
+            context,
+            phi_context,
+            gamma_model,
+            debug_mode=debug_mode,
+            use_heuristics=use_heuristics,
+            visualizer=cover_visualizer
+        )
 
         _logger.info("Covering algorithm produced psi:\n%s", psi)
 

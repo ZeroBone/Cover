@@ -1,5 +1,6 @@
 import itertools
 import math
+import logging
 from fractions import Fraction
 from typing import List
 
@@ -13,6 +14,9 @@ from linconstraint import LinearConstraint
 from gauss import compute_kernel, check_image_space_inclusion
 from vardec_context import VarDecContext
 from z3_utils import is_sat, is_valid
+
+
+_logger = logging.getLogger("vardec")
 
 
 class _DisjunctKernelProjectedSolutionSpaces:
@@ -49,8 +53,8 @@ class _DisjunctGroup:
     def get_repr_eq_ct_ids(self) -> frozenset:
         return self.eq_ct[0]
 
-    def add_disjunct_label(self, label: str, color: str, /):
-        self.disjunct_labels.append((label, color))
+    def add_disjunct_label(self, label: str, color: str, /, *, highlight: bool):
+        self.disjunct_labels.append((highlight, label, color))
 
     def get_graphviz_group_node_label(self) -> str:
 
@@ -59,12 +63,15 @@ class _DisjunctGroup:
         def _escape_char(s: str) -> str:
             return s.replace("<", "&#60;").replace(">", "&#62;")
 
-        def _compute_disjunct_html(label: str, color: str) -> str:
-            return "<font color='%s'>%s</font>" % (color, _escape_char(label))
+        def _compute_disjunct_html(label: str, color: str, highlight: bool, /) -> str:
+            if highlight:
+                return "<font color='%s'><u>%s</u></font>" % (color, _escape_char(label))
+            else:
+                return "<font color='%s'>%s</font>" % (color, _escape_char(label))
 
         if len(self.disjunct_labels) <= 5:
             return "<%s>" % "|".join(
-                _compute_disjunct_html(label, color) for label, color in self.disjunct_labels
+                _compute_disjunct_html(label, color, highlight) for highlight, label, color in self.disjunct_labels
             )
 
         columns = int(math.ceil(.6 * math.sqrt(len(self.disjunct_labels))))
@@ -75,8 +82,8 @@ class _DisjunctGroup:
 
         while cur_label_index < len(self.disjunct_labels):
             rows.append("{%s}" % "|".join(
-                _compute_disjunct_html(label, color)
-                for label, color in self.disjunct_labels[cur_label_index:cur_label_index + columns]
+                _compute_disjunct_html(label, color, highlight)
+                for highlight, label, color in self.disjunct_labels[cur_label_index:cur_label_index + columns]
             ))
             cur_label_index += columns
 
@@ -168,7 +175,7 @@ class _DisjunctGraphBuilder:
         self._disjunct_groups.append(_DisjunctGroup(new_group_id, eq_constraint_ids))
         self._group_table[eq_constraint_ids] = new_group_id
 
-    def add_disjunct(self, model_vec: np.ndarray, phi_context: FormulaContext, /):
+    def add_disjunct(self, model_vec: np.ndarray, phi_context: FormulaContext, highlight_disjunct_domain, /):
 
         eq_constraint_ids = self._model_vec_to_equality_constraint_ids(model_vec)
 
@@ -179,6 +186,10 @@ class _DisjunctGraphBuilder:
 
         group = self._disjunct_groups[self._group_table[eq_constraint_ids]]
 
+        # to check whether the disjunct entail phi it suffices to check wheher
+        # it agrees with phi on an arbitrary model
+        # this is the case, because the disjunct contains in particular all constraints
+        # from phi, in the <, > or = form
         disjunct_entails_phi = phi_context.model_check(model_vec, self._context)
 
         if disjunct_entails_phi:
@@ -186,9 +197,25 @@ class _DisjunctGraphBuilder:
         else:
             assert is_valid(z3.Implies(z3.And(*self.model_vec_to_disjunct(model_vec)), z3.Not(phi_context.phi)))
 
+        # check whether the current disjunct entails the highlight_disjunct_domain
+
+        disjunct_entails_highlight_domain = is_sat(z3.And(
+            *self.model_vec_to_disjunct(model_vec),
+            highlight_disjunct_domain
+        ))
+
+        if disjunct_entails_highlight_domain:
+            assert is_valid(z3.Implies(z3.And(*self.model_vec_to_disjunct(model_vec)), highlight_disjunct_domain))
+        else:
+            assert is_valid(z3.Implies(
+                z3.And(*self.model_vec_to_disjunct(model_vec)),
+                z3.Not(highlight_disjunct_domain)
+            ))
+
         group.add_disjunct_label(
             self._model_vec_to_label(model_vec),
-            "green3" if disjunct_entails_phi else "red3"
+            "green3" if disjunct_entails_phi else "red3",
+            highlight=disjunct_entails_highlight_domain
         )
 
     def create_group_graph(self) -> graphviz.Digraph:
@@ -311,11 +338,13 @@ class _DisjunctGraphBuilder:
         return g
 
 
-def compute_all_disjuncts(
+def render_disjunct_graph(
     context: VarDecContext,
     phi_context: FormulaContext,
     domain_lin_constraints: List[LinearConstraint],
-    domain_formula
+    domain_formula, /, *,
+    file_name: str,
+    highlight_disjunct_domain=False
 ):
 
     disjunct_solver = z3.Solver()
@@ -331,7 +360,7 @@ def compute_all_disjuncts(
         disjunct = disj_graph_builder.model_vec_to_disjunct(disj_model_vec)
         assert is_sat(z3.And(*disjunct))
 
-        disj_graph_builder.add_disjunct(disj_model_vec, phi_context)
+        disj_graph_builder.add_disjunct(disj_model_vec, phi_context, highlight_disjunct_domain)
 
         disj_count += 1
 
@@ -339,6 +368,7 @@ def compute_all_disjuncts(
             *(z3.Not(d) for d in disjunct)
         ))
 
-    print("Disjunct count: %d" % disj_count)
     g = disj_graph_builder.create_group_graph()
-    g.render("group.gv", "generated_figures", engine="dot", format="svg")
+    g.render("%s.gv" % file_name, "generated_figures", engine="dot", format="svg")
+
+    _logger.info("Rendered disjunct graph with %d disjuncts." % disj_count)

@@ -9,6 +9,7 @@ import z3
 import examples
 from vardec import vardec
 from vardec_context import VarDecContext
+from visualizer import ActualCoverVisualizer, Visualizer
 from z3_utils import is_valid
 
 
@@ -25,10 +26,12 @@ def _main():
 
     verbose_mode = "--verbose" in sys.argv[1:]
     debug_mode = "--debug" in sys.argv[1:]
+    visualization_mode = "--vis" in sys.argv[1:]
     use_heuristics = "--no-heuristics" not in sys.argv[1:]
 
     print("Verbose mode: %s" % ("enabled" if verbose_mode else "disabled"))
     print("Debug mode: %s" % ("enabled" if debug_mode else "disabled"))
+    print("Visualization mode: %s" % ("enabled" if visualization_mode else "disabled"))
     print("Using heuristics: %s" % ("yes" if use_heuristics else "no"))
 
     _logger.setLevel(logging.DEBUG if verbose_mode else logging.INFO)
@@ -67,7 +70,17 @@ def _main():
 
     context = VarDecContext(x, y)
 
-    decomposition = vardec(phi, x, y, debug_mode=debug_mode, use_heuristics=use_heuristics, context=context)
+    visualizer = Visualizer() if visualization_mode else None
+
+    decomposition = vardec(
+        phi,
+        x,
+        y,
+        debug_mode=debug_mode,
+        use_heuristics=use_heuristics,
+        context=context,
+        visualizer=visualizer
+    )
 
     _logger.info(("=" * 20) + " [RESULT] " + ("=" * 20))
 

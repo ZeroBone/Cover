@@ -39,6 +39,13 @@ class FormulaContext:
             context.vector_to_enforcing_expr(model_vec)
         )
 
+    def model_vec_to_tag(self, model_vec: np.ndarray, /) -> str:
+        """ Returns a short, readable and unique identifier of the disjunct containing this model"""
+        return "".join(
+            ct.get_predicate_symbol_satisfying_model(model_vec)
+            for ct in self.constraints
+        )
+
     def query_whether_formula_entails_phi(self, query_formula, /) -> bool:
         self._entailment_solver.push()
         self._entailment_solver.add(query_formula)
