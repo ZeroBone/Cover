@@ -218,6 +218,10 @@ def cover(
     disjunct_solver = z3.Solver()
     disjunct_solver.add(z3.And(*theta))
 
+    if use_heuristics:
+        # there is no need to rule out a disjunct which in any event entails phi
+        disjunct_solver.add(z3.Not(phi_context.phi))
+
     while disjunct_solver.check() == z3.sat:
         omega_model = disjunct_solver.model()
         omega_model_vec = context.model_to_vec(omega_model)
