@@ -31,8 +31,6 @@ def cover(
     phi_context: FormulaContext,
     gamma_model,
     gamma_additional_eq_constraints: List[LinearConstraint] = None, /, *,
-    debug_mode: bool = True,
-    use_heuristics: bool = True,
     visualizer: CoverVisualizer = DummyCoverVisualizer()
 ):
 
@@ -42,7 +40,7 @@ def cover(
     if gamma_additional_eq_constraints is None:
         gamma_additional_eq_constraints = []
 
-    if debug_mode:
+    if context.debug_mode:
         _logger.debug(
             "Additional constraints: %s",
             [constraint.get_equality_expr(context) for constraint in gamma_additional_eq_constraints]
@@ -54,7 +52,7 @@ def cover(
         for b in (VarDecContext.X, VarDecContext.Y)
     )
 
-    if debug_mode:
+    if context.debug_mode:
         _logger.debug("Model: %s", gamma_model_vec)
 
     gamma = [
@@ -62,7 +60,7 @@ def cover(
         *(ct.get_equality_expr(context) for ct in gamma_additional_eq_constraints)
     ]
 
-    if debug_mode:
+    if context.debug_mode:
         for ct in gamma_additional_eq_constraints:
             assert ct.respects_pi(context)
 
@@ -84,7 +82,7 @@ def cover(
         if constraint.model_satisfies_equality_version(gamma_model_vec)
     ]
 
-    if debug_mode:
+    if context.debug_mode:
         assert is_sat(z3.And(*gamma))
         assert is_valid(z3.Implies(
             context.vector_to_enforcing_expr(gamma_model_vec),
@@ -112,7 +110,7 @@ def cover(
 
     gamma_eq_constraint_mat_ker = compute_kernel(gamma_eq_constraint_mat)
 
-    if debug_mode:
+    if context.debug_mode:
         _logger.debug("Gamma equality constraint matrix kernel:\n%s", gamma_eq_constraint_mat_ker)
 
     # we now translate the equality constraints into Pi-respecting formulas
@@ -139,7 +137,7 @@ def cover(
 
             visualizer.on_cover_init_and_ret_pi_simple()
 
-            if debug_mode:
+            if context.debug_mode:
                 assert is_valid(decomposition == z3.And(*gamma))
             return decomposition
 
@@ -148,7 +146,7 @@ def cover(
         for b in (VarDecContext.X, VarDecContext.Y)
     )
 
-    if debug_mode:
+    if context.debug_mode:
         for b in VarDecContext.X, VarDecContext.Y:
             _logger.debug(
                 "Linear dependencies of Gamma^= with respect to %s:\n%s",
@@ -172,7 +170,7 @@ def cover(
 
     _logger.info("Theta (with Gamma's linear dependencies enforced):\n%s", theta)
 
-    if debug_mode:
+    if context.debug_mode:
         assert is_valid(z3.Implies(z3.And(*gamma), z3.And(*theta)))
         assert is_valid(z3.Implies(
             z3.And(*gamma),
@@ -181,7 +179,7 @@ def cover(
 
     visualizer.on_cover_init_pi_complex(gamma_additional_eq_constraints, z3.And(*theta))
 
-    if use_heuristics:
+    if context.use_heuristics:
         # now we try to cover Gamma in a very agressive manner, for which model flooding doesn't hold
         # this is an optional heuristic designed to improve the performance
 
@@ -202,7 +200,7 @@ def cover(
 
             _logger.info("Theta expanded: %s", theta_expanded)
 
-            if debug_mode:
+            if context.debug_mode:
                 assert phi_context.query_whether_formula_entails_phi(z3.And(*theta_expanded))
 
             return z3.And(*theta_expanded)
@@ -239,7 +237,7 @@ def cover(
             else:
                 not_omega_eq_constraint_indices.append(i)
 
-        if debug_mode:
+        if context.debug_mode:
             _logger.debug(
                 "Omega equality constraint id's: %s Id's of absent constraints: %s",
                 omega_eq_constraint_indices,
@@ -270,7 +268,7 @@ def cover(
             for b in (VarDecContext.X, VarDecContext.Y)
         )
 
-        if debug_mode:
+        if context.debug_mode:
             for b in VarDecContext.X, VarDecContext.Y:
                 _logger.debug(
                     "Linear dependencies of Omega^= with respect to %s:\n%s",
@@ -281,12 +279,12 @@ def cover(
         lindep_diff = tuple(
             compute_gen_set_of_intersection_of_mat_images(
                 omega_eq_constraint_mat_lindep[b], gamma_eq_constraint_mat_ker_proj[b],
-                debug_mode=debug_mode
+                debug_mode=context.debug_mode
             )
             for b in (VarDecContext.X, VarDecContext.Y)
         )
 
-        if debug_mode:
+        if context.debug_mode:
             for b in VarDecContext.X, VarDecContext.Y:
                 _logger.debug(
                     "Linear dependencies present in Omega but absent in Gamma, with respect to %s:\n%s",
@@ -347,7 +345,7 @@ def cover(
 
             _logger.info("Witness predicate: %s", w_lhs == w_rhs)
 
-            if debug_mode:
+            if context.debug_mode:
                 _omega_eq = z3.And(
                     # equality predicates of Omega, from the original formula phi
                     *(phi_context.constraints[i].get_equality_expr(context) for i in omega_eq_constraint_indices),
@@ -379,8 +377,6 @@ def cover(
                     phi_context,
                     rec_model,
                     gamma_additional_eq_constraints + [w_pred_constraint],
-                    debug_mode=debug_mode,
-                    use_heuristics=use_heuristics,
                     visualizer=visualizer.create_visualizer_for_recursive_call()
                 )
 
@@ -422,7 +418,7 @@ def cover(
 
             if is_sat(z3.And(*gamma, *current_decomposition_disjunct)):
                 decomposition_disjuncts.append(z3.And(*current_decomposition_disjunct))
-            elif debug_mode:
+            elif context.debug_mode:
                 _logger.debug("Ignoring disjunct corresponding to %s", subset_set)
 
     decomposition = z3.Or(
@@ -435,8 +431,7 @@ def cover(
     return decomposition
 
 
-def vardec(phi, x: list, y: list, /, *,
-           debug_mode=True, use_heuristics=True, context=None, visualizer: Visualizer = None):
+def vardec(phi, x: list, y: list, /, *, context=None, visualizer: Visualizer = None):
 
     if context is None:
         context = VarDecContext(x, y)
@@ -464,14 +459,12 @@ def vardec(phi, x: list, y: list, /, *,
             context,
             phi_context,
             gamma_model,
-            debug_mode=debug_mode,
-            use_heuristics=use_heuristics,
             visualizer=cover_visualizer
         )
 
         _logger.info("Covering algorithm produced psi:\n%s", psi)
 
-        if debug_mode:
+        if context.debug_mode:
             gamma = z3.And(*(
                 constraint.get_version_satisfying_model(
                     context,

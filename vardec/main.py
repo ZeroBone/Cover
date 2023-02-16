@@ -9,7 +9,7 @@ import z3
 import examples
 from vardec import vardec
 from vardec_context import VarDecContext
-from visualizer import ActualCoverVisualizer, Visualizer
+from visualizer import Visualizer
 from z3_utils import is_valid
 
 
@@ -68,7 +68,12 @@ def _main():
         ", ".join(str(y_var) for y_var in y),
     )
 
-    context = VarDecContext(x, y)
+    context = VarDecContext(
+        x,
+        y,
+        debug_mode=debug_mode,
+        use_heuristics=use_heuristics
+    )
 
     visualizer = Visualizer() if visualization_mode else None
 
@@ -76,8 +81,6 @@ def _main():
         phi,
         x,
         y,
-        debug_mode=debug_mode,
-        use_heuristics=use_heuristics,
         context=context,
         visualizer=visualizer
     )
