@@ -54,7 +54,7 @@ def _load_formula_from_smt2(args):
         print("Error: could not parse the specified .smt2 file due to a Z3 error.")
         sys.exit(0)
 
-    return z3.And([f for f in formula_smt])
+    return z3.simplify(z3.And([f for f in formula_smt]))
 
 
 def _main():

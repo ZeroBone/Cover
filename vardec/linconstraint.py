@@ -148,6 +148,11 @@ def predicate_to_linear_constraint(context: VarDecContext, predicate, /) -> Line
     left_operand: ExprRef = predicate.children()[0]
     right_operand: ExprRef = predicate.children()[1]
 
+    assert left_operand.decl().kind() == z3.Z3_OP_ANUM or right_operand.decl().kind() == z3.Z3_OP_ANUM
+
+    if right_operand.decl().kind() != z3.Z3_OP_ANUM:
+        left_operand, right_operand = right_operand, left_operand
+
     assert right_operand.decl().kind() == z3.Z3_OP_ANUM
     assert isinstance(right_operand, RatNumRef)
 
