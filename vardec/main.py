@@ -1,6 +1,7 @@
+import argparse
 import logging
 import os
-import sys
+import time
 from pathlib import Path
 from inspect import isfunction, getmodule
 
@@ -22,21 +23,31 @@ def _resolve_base_path():
 
 
 def _main():
-    # initialize the logger
+    parser = argparse.ArgumentParser(
+        prog="PresVarDec",
+        description="Tool for deciding monadic and variable decomposition of linear real arithmetic",
+        epilog="See the GitHub repository README for more information")
 
-    verbose_mode = "--verbose" in sys.argv[1:]
-    debug_mode = "--debug" in sys.argv[1:]
-    visualization_mode = "--vis" in sys.argv[1:]
-    use_heuristics = "--no-heuristics" not in sys.argv[1:]
-    use_blast_heuristic = "--no-blast" not in sys.argv[1:]
+    parser.add_argument("-v", "--verbose", action="store_true", help="enable logging of all debug information")
+    parser.add_argument("-d", "--debug", action="store_true", help="enable expensive invariant checks")
+    parser.add_argument("-i", "--vis", action="store_true", help="turn on algorithm visualization mode")
+    parser.add_argument("-s", "--no-heuristics", action="store_true", help="disable the usage of heuristics")
+    parser.add_argument("-b", "--no-blast", action="store_true", help="disable the usage of the blast heuristic")
 
-    print("Verbose mode: %s" % ("enabled" if verbose_mode else "disabled"))
-    print("Debug mode: %s" % ("enabled" if debug_mode else "disabled"))
-    print("Visualization mode: %s" % ("enabled" if visualization_mode else "disabled"))
+    args = parser.parse_args()
+
+    use_heuristics = not args.no_heuristics
+    use_blast_heuristic = not args.no_blast
+
+    print("Verbose mode: %s" % ("enabled" if args.verbose else "disabled"))
+    print("Debug mode: %s" % ("enabled" if args.debug else "disabled"))
+    print("Visualization mode: %s" % ("enabled" if args.vis else "disabled"))
     print("Using heuristics: %s" % ("yes" if use_heuristics else "no"))
     print("Using the blast heuristic: %s" % ("yes" if use_blast_heuristic else "no"))
 
-    _logger.setLevel(logging.DEBUG if verbose_mode else logging.INFO)
+    # initialize the logger
+
+    _logger.setLevel(logging.DEBUG if args.verbose else logging.INFO)
 
     file_handler = logging.FileHandler(os.path.join(_resolve_base_path(), "vardec.log"), mode="w")
     file_handler.setLevel(logging.DEBUG)
@@ -73,12 +84,14 @@ def _main():
     context = VarDecContext(
         x,
         y,
-        debug_mode=debug_mode,
+        debug_mode=args.debug,
         use_heuristics=use_heuristics,
         use_blast_heuristic=use_blast_heuristic
     )
 
-    visualizer = Visualizer() if visualization_mode else None
+    visualizer = Visualizer() if args.vis else None
+
+    time_start = time.perf_counter()
 
     decomposition = vardec(
         phi,
@@ -88,6 +101,8 @@ def _main():
         visualizer=visualizer
     )
 
+    vardec_time = time.perf_counter() - time_start
+
     _logger.info(("=" * 20) + " [RESULT] " + ("=" * 20))
 
     if decomposition is None:
@@ -96,6 +111,7 @@ def _main():
         _logger.info("Verdict: phi is not Pi-decomposable")
         _logger.info("=" * 51)
         context.print_stats()
+        print("Time: %lf" % vardec_time)
         return
 
     print("=== [Result] ===")
@@ -120,6 +136,7 @@ def _main():
     _logger.info("Variable decomposition simplified:\n%s", decomposition)
 
     context.print_stats()
+    print("Time: %lf" % vardec_time)
 
 
 if __name__ == '__main__':
