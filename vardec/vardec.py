@@ -490,6 +490,10 @@ def _cover(
 
 def vardec(phi, x: list, y: list, /, *, context=None, visualizer: Visualizer = None):
 
+    if len(x) == 0 or len(y) == 0:
+        # every formula is decomposable with respect to the trivial partition
+        return phi
+
     if context is None:
         context = VarDecContext(x, y)
 

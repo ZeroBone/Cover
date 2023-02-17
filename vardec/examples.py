@@ -13,7 +13,7 @@ def test_1():
         And(y >= 1, x > 2)
     ))
 
-    return phi, [x], [y]
+    return phi, [[x], [y]]
 
 
 def _addition_formula(n: int):
@@ -27,7 +27,7 @@ def _addition_formula(n: int):
             Or(xy[i] == 0, xy[i] == 2 ** i)
             for i in range(1, n + 1)
         ]
-    ), xy[:1], xy[1:]
+    ), [xy[:1], xy[1:]]
 
 
 def addition_formula_2():
@@ -62,7 +62,7 @@ def simple_line_inference():
         x + y <= 15
     )
 
-    return phi, [x], [y]
+    return phi, [[x], [y]]
 
 
 def decomposable_x_complex_border():
@@ -73,7 +73,7 @@ def decomposable_x_complex_border():
     return And(
         Or(x + y + 2 * z == 0, x + y + 2 * z != 0),
         z == 0
-    ), [x], [y, z]
+    ), [[x], [y, z]]
 
 
 def decomposable_x_complex_border_2():
@@ -85,7 +85,7 @@ def decomposable_x_complex_border_2():
         Or(x + y + 2 * z == 0, x + y + 2 * z != 0),
         Or(x + y == 0, x + y != 0),
         z == 0
-    ), [x], [y, z]
+    ), [[x], [y, z]]
 
 
 def h_simple_not_empty():
@@ -101,7 +101,7 @@ def h_simple_not_empty():
             x + y == 0,
             x - z == 0
         ))
-    ), [x], [y, z]
+    ), [[x], [y, z]]
 
 
 def h_simple_not_empty_2():
@@ -111,7 +111,7 @@ def h_simple_not_empty_2():
     return Not(And(
         x + y == 0,
         x - y == 0
-    )), [x], [y]
+    )), [[x], [y]]
 
 
 def three_x_complex_atoms():
@@ -124,7 +124,7 @@ def three_x_complex_atoms():
             x + y == 0,
             x - y == 0
         ))
-    ), [x], [y]
+    ), [[x], [y]]
 
 
 def x_complex_region_inside_x_simple_region():
@@ -134,21 +134,21 @@ def x_complex_region_inside_x_simple_region():
     return Or(
         And(x - y == 0, x - y + z == 0),
         z == 0
-    ), [x], [y, z]
+    ), [[x], [y, z]]
 
 
 def x_equals_y():
 
     x, y = Reals("x y")
 
-    return x - y == 0, [x], [y]
+    return x - y == 0, [[x], [y]]
 
 
 def x_eq_0_or_y_eq_0():
 
     x, y = Reals("x y")
 
-    return Or(x == 0, y == 0), [x], [y]
+    return Or(x == 0, y == 0), [[x], [y]]
 
 
 def plane_parallel_intersection():
@@ -231,7 +231,7 @@ def plane_parallel_intersection():
 
     phi = And(phi_1_eq, phi_2_eq, Or(phi_3_lt, phi_4_gt), Implies(phi_3_eq, phi_5_neq))
 
-    return phi, [x_1, x_2, x_3], [y_1, y_2, y_3]
+    return phi, [[x_1, x_2, x_3], [y_1, y_2, y_3]]
 
 
 def three_sandwiched_spaces():
@@ -273,7 +273,7 @@ def three_sandwiched_spaces():
     # Check equivalence
     assert is_valid(phi == phi_decomposition)
 
-    return phi, [x_1, x_2, x_3], [x_4, x_5, x_6]
+    return phi, [[x_1, x_2, x_3], [x_4, x_5, x_6]]
 
 
 def strict_inequality_inference():
@@ -283,7 +283,7 @@ def strict_inequality_inference():
         x_1 + x_2 + y_1 == 0,
         y_1 == 0,
         Or(x_1 - y_2 != 0, x_1 + y_2 != 0)
-    ), [x_1, x_2], [y_1, y_2]
+    ), [[x_1, x_2], [y_1, y_2]]
 
 
 def false_point():
@@ -292,4 +292,4 @@ def false_point():
     return Or(
         x - y != 0,
         x + y != 0
-    ), [x], [y]
+    ), [[x], [y]]
