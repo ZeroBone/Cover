@@ -10,12 +10,14 @@ class PartitionException(Exception):
 def _build_binary_partition(blocks, index_pred: Callable[[int], bool]) -> tuple:
     first = set()
     second = set()
+
     for i, v in enumerate(blocks):
         if index_pred(i):
             first.update(v)
         else:
             second.update(v)
-    return first, second
+
+    return sorted(first, key=str), sorted(second, key=str)
 
 
 class Partition:
