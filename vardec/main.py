@@ -28,11 +28,13 @@ def _main():
     debug_mode = "--debug" in sys.argv[1:]
     visualization_mode = "--vis" in sys.argv[1:]
     use_heuristics = "--no-heuristics" not in sys.argv[1:]
+    use_blast_heuristic = "--no-blast" not in sys.argv[1:]
 
     print("Verbose mode: %s" % ("enabled" if verbose_mode else "disabled"))
     print("Debug mode: %s" % ("enabled" if debug_mode else "disabled"))
     print("Visualization mode: %s" % ("enabled" if visualization_mode else "disabled"))
     print("Using heuristics: %s" % ("yes" if use_heuristics else "no"))
+    print("Using the blast heuristic: %s" % ("yes" if use_blast_heuristic else "no"))
 
     _logger.setLevel(logging.DEBUG if verbose_mode else logging.INFO)
 
@@ -72,7 +74,8 @@ def _main():
         x,
         y,
         debug_mode=debug_mode,
-        use_heuristics=use_heuristics
+        use_heuristics=use_heuristics,
+        use_blast_heuristic=use_blast_heuristic
     )
 
     visualizer = Visualizer() if visualization_mode else None
@@ -110,9 +113,11 @@ def _main():
 
     _logger.info("=" * 51)
 
+    _logger.info("Variable decomposition:\n%s", decomposition)
+
     decomposition = z3.simplify(decomposition, elim_sign_ext=False, local_ctx=True)
 
-    _logger.info("Variable decomposition:\n%s", decomposition)
+    _logger.info("Variable decomposition simplified:\n%s", decomposition)
 
     context.print_stats()
 

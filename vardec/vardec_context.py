@@ -13,16 +13,20 @@ class VarDecContext:
     X = 0
     Y = 1
 
-    def __init__(self, x: list, y: list, /, *, debug_mode: bool = False, use_heuristics: bool = True):
+    def __init__(self, x: list, y: list, /, *,
+                 debug_mode: bool = False, use_heuristics: bool = True, use_blast_heuristic: bool = True):
         self._x = x
         self._y = y
         self.debug_mode = debug_mode
         self.use_heuristics = use_heuristics
+        self.use_blast_heuristic = use_blast_heuristic
         self._stat_cover_calls = 0
         self._stat_indistinguishable_disjuncts_count = 0
         self._stat_distinguishable_disjuncts_count = 0
         self._stat_heuristic_success_count = 0
         self._stat_heuristic_fail_count = 0
+        self._stat_blast_heuristic_success_count = 0
+        self._stat_blast_heuristic_fail_count = 0
         assert set(self._x).isdisjoint(set(self._y))
 
     def variable_count(self) -> int:
@@ -137,6 +141,12 @@ class VarDecContext:
     def stat_on_heuristic_fail(self):
         self._stat_heuristic_fail_count += 1
 
+    def stat_on_blast_heuristic_success(self):
+        self._stat_blast_heuristic_success_count += 1
+
+    def stat_on_blast_heuristic_fail(self):
+        self._stat_blast_heuristic_fail_count += 1
+
     def print_stats(self):
         print("=== [Statistics] ===")
         print("Cover calls: %d" % self._stat_cover_calls)
@@ -145,6 +155,11 @@ class VarDecContext:
         print(
             "Heuristic success rate: %d/%d" %
             (self._stat_heuristic_success_count, self._stat_heuristic_success_count + self._stat_heuristic_fail_count)
+        )
+        print(
+            "Blast heuristic success rate: %d/%d" %
+            (self._stat_blast_heuristic_success_count,
+             self._stat_blast_heuristic_success_count + self._stat_blast_heuristic_fail_count)
         )
 
 

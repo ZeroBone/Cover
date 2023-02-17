@@ -213,10 +213,47 @@ def _cover(
     upsilon_lt_gt = []
     upsilon_neq = []
 
+    restrict_to_not_phi = z3.Bool("_rtnp")
+
     disjunct_solver = z3.Solver()
     disjunct_solver.add(z3.And(*theta))
 
-    while disjunct_solver.check() == z3.sat:
+    # idea of the blast heuristic: try to find first those disjuncts, where phi is false
+    # once such false disjunct is found, compute a witnessing predicate separating it from Gamma
+    # and then check whether Delta OR (Theta AND [separating predicate]) entails phi
+    # if yes, then this is the covering
+
+    disjunct_solver.add(z3.Implies(restrict_to_not_phi, z3.Not(phi_context.phi)))
+
+    if not context.use_blast_heuristic:
+        disjunct_solver.add(z3.Not(restrict_to_not_phi))
+
+    # whether we have already considered all those Omega, which agree with (not phi) on at least one model
+    false_disjuncts_exhausted = False
+
+    _logger.info("Starting to enumerate disjuncts of Theta.")
+
+    while True:
+
+        false_disjuncts_exhausted_in_this_iter = False
+
+        if false_disjuncts_exhausted or not context.use_blast_heuristic:
+            if disjunct_solver.check() == z3.unsat:
+                break
+        else:
+            # we are using the neg phi cover heuristic
+            # try to first find a disjunct where the formula is false
+
+            if disjunct_solver.check(restrict_to_not_phi) == z3.sat:
+                # found disjunct agreein with (not phi) on some model
+                pass
+            elif disjunct_solver.check() == z3.sat:
+                false_disjuncts_exhausted = True
+                false_disjuncts_exhausted_in_this_iter = True
+                _logger.info("Blast heuristic: false disjuncts exhausted.")
+            else:
+                break
+
         omega_model = disjunct_solver.model()
         omega_model_vec = context.model_to_vec(omega_model)
         omega_model_vec_proj = tuple(
@@ -399,6 +436,26 @@ def _cover(
                 *(phi_context.constraints[i].get_equality_expr(context) for i in not_omega_eq_constraint_indices)
             ))
 
+        if context.use_blast_heuristic and \
+                (false_disjuncts_exhausted_in_this_iter or not false_disjuncts_exhausted):
+
+            heuristic_covering = z3.Or(
+                *delta,
+                z3.And(
+                    *theta,
+                    *upsilon_lt_gt,
+                    *(lhs != rhs for lhs, rhs in upsilon_neq)
+                )
+            )
+
+            if phi_context.query_whether_formula_entails_phi(heuristic_covering):
+                _logger.info("Blast heuristic success!")
+                context.stat_on_blast_heuristic_success()
+                return heuristic_covering
+            else:
+                _logger.info("Blast heuristic fail!")
+                context.stat_on_blast_heuristic_fail()
+
     _logger.debug("Upsilon^{<>} = %s", upsilon_lt_gt)
     _logger.debug("Upsilon^{\\neq} = %s", upsilon_neq)
 
@@ -422,8 +479,8 @@ def _cover(
                 _logger.debug("Ignoring disjunct corresponding to %s", subset_set)
 
     decomposition = z3.Or(
-        z3.And(*theta, *upsilon_lt_gt, z3.Or(*decomposition_disjuncts)),
-        *delta
+        *delta,
+        z3.And(*theta, *upsilon_lt_gt, z3.Or(*decomposition_disjuncts))
     )
 
     _logger.info("Covering call returns decomposition:\n%s", decomposition)
