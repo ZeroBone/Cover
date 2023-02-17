@@ -11,6 +11,7 @@ import z3
 import examples
 from partition import parse_formula_variable_partition, PartitionException, get_singleton_partition, Partition
 from vardec import vardec
+from vardec_binary import vardec_binary
 from vardec_context import VarDecContext
 from visualizer import Visualizer
 from z3_utils import is_valid, get_formula_variables
@@ -127,38 +128,53 @@ def _main():
     _logger.info("Partition: Pi = %s", pi)
     print("Partition: Pi = %s" % pi)
 
-    sys.exit(0)
+    if pi.is_binary_or_unary():
 
-    context = VarDecContext(
-        x,
-        y,
-        debug_mode=args.debug,
-        use_heuristics=use_heuristics,
-        use_blast_heuristic=use_blast_heuristic
-    )
+        _blocks = pi.get_blocks_as_variable_lists()
 
-    visualizer = Visualizer() if args.vis else None
+        x = _blocks[0]
+        y = [] if len(_blocks) == 1 else _blocks[1]
 
-    time_start = time.perf_counter()
+        context = VarDecContext(
+            x,
+            y,
+            debug_mode=args.debug,
+            use_heuristics=use_heuristics,
+            use_blast_heuristic=use_blast_heuristic
+        )
 
-    decomposition = vardec(
-        phi,
-        x,
-        y,
-        context=context,
-        visualizer=visualizer
-    )
+        visualizer = Visualizer() if args.vis else None
 
-    vardec_time = time.perf_counter() - time_start
+        _time_start = time.perf_counter()
+
+        decomposition = vardec_binary(
+            phi,
+            x,
+            y,
+            context=context,
+            visualizer=visualizer
+        )
+
+        vardec_time = time.perf_counter() - _time_start
+
+        is_decomposable = decomposition is not None
+
+    else:
+        _time_start = time.perf_counter()
+        is_decomposable = vardec(phi, pi)
+        vardec_time = time.perf_counter() - _time_start
+        decomposition = None
+        context = None
 
     _logger.info(("=" * 20) + " [RESULT] " + ("=" * 20))
 
-    if decomposition is None:
+    if not is_decomposable:
         print("=== [Result] ===")
         print("Verdict: phi is not Pi-decomposable (see logs for the details)")
         _logger.info("Verdict: phi is not Pi-decomposable")
         _logger.info("=" * 51)
-        context.print_stats()
+        if context is not None:
+            context.print_stats()
         print("Time: %lf" % vardec_time)
         return
 
@@ -166,24 +182,26 @@ def _main():
     print("Verdict: phi is Pi-decomposable")
     _logger.info("Verdict: phi is Pi-decomposable")
 
-    if is_valid(phi == decomposition):
-        s = "Test PASS: decomposition is equivalent to the original formula"
-        _logger.info(s)
-        print(s)
-    else:
-        s = "Test FAIL: decomposition is not equivalent to the original formula"
-        _logger.error(s)
-        print(s)
+    if decomposition is not None:
+        if is_valid(phi == decomposition):
+            s = "Test PASS: decomposition is equivalent to the original formula"
+            _logger.info(s)
+            print(s)
+        else:
+            s = "Test FAIL: decomposition is not equivalent to the original formula"
+            _logger.error(s)
+            print(s)
 
     _logger.info("=" * 51)
 
-    _logger.info("Variable decomposition:\n%s", decomposition)
+    if decomposition is not None:
+        _logger.info("Variable decomposition:\n%s", decomposition)
+        decomposition = z3.simplify(decomposition, elim_sign_ext=False, local_ctx=True)
+        _logger.info("Variable decomposition simplified:\n%s", decomposition)
 
-    decomposition = z3.simplify(decomposition, elim_sign_ext=False, local_ctx=True)
+    if context is not None:
+        context.print_stats()
 
-    _logger.info("Variable decomposition simplified:\n%s", decomposition)
-
-    context.print_stats()
     print("Time: %lf" % vardec_time)
 
 

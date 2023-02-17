@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Callable
 
 
 class PartitionException(Exception):
@@ -7,14 +7,45 @@ class PartitionException(Exception):
         super().__init__(*args)
 
 
+def _build_binary_partition(blocks, index_pred: Callable[[int], bool]) -> tuple:
+    first = set()
+    second = set()
+    for i, v in enumerate(blocks):
+        if index_pred(i):
+            first.update(v)
+        else:
+            second.update(v)
+    return first, second
+
+
 class Partition:
 
     def __init__(self, blocks: list, /):
         self._blocks = blocks
 
+    def is_binary_or_unary(self) -> bool:
+        assert len(self._blocks) > 0
+        return len(self._blocks) < 3
+
+    def get_blocks_as_variable_lists(self) -> list:
+        return [sorted(b, key=str) for b in self._blocks]
+
+    def get_equivalent_list_of_binary_partitions(self) -> List[tuple]:
+        # we assume the partition is not unary
+        assert len(self._blocks) > 1
+
+        var_count = sum(len(b) for b in self._blocks)
+
+        q = (var_count - 1).bit_length()
+
+        return [
+            _build_binary_partition(self._blocks, lambda j: (j >> i) & 1 == 0)
+            for i in range(q)
+        ]
+
     def __str__(self):
         return "{%s}" % ", ".join(
-            "{%s}" % ", ".join(sorted((v.decl().name() for v in b), key=str)) for b in self._blocks
+            "{%s}" % ", ".join(sorted(v.decl().name() for v in b)) for b in self._blocks
         )
 
 

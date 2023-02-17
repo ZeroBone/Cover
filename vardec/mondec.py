@@ -1,6 +1,6 @@
 from typing import Callable
 
-from vardec import vardec
+from vardec_binary import vardec_binary
 from z3_utils import get_formula_variables
 
 
@@ -33,7 +33,7 @@ def mondec(phi, phi_vars: list = None) -> bool:
 
         print("Decomposing on partition Pi = {%s, %s}" % (x, y))
 
-        result = vardec(phi, x, y)
+        result = vardec_binary(phi, x, y)
 
         if result is None:
             # the formula is not decomposable
