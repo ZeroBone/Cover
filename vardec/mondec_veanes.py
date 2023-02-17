@@ -1,7 +1,8 @@
 """
 Authors: Margus Veanes, Nikolaj Bjørner, Lev Nachmanson & Sergey Bereg
-This version has been slightly refactored by Anthony Widjaja Lin and Alexander Mayorov
+This version has been slightly refactored by Anthony Widjaja Lin, Daniel Stan and Alexander Mayorov
 """
+import time
 
 from z3 import *
 
@@ -114,6 +115,44 @@ def test_mondec5():
     mondec_veanes(R, [x, y])
 
 
-if __name__ == "__main__":
-    # test_mondec3(500)
-    test_mondec5()
+def _load_smt(file_name):
+    """Load formula from SMT2 file"""
+    target_vector = parse_smt2_file(file_name)
+
+    # take the formulas from the file in conjunction
+    formula = z3.And([form for form in target_vector])
+
+    formula_vars = z3util.get_vars(formula)
+
+    def lambda_model(value):
+        """The mondec algorithm requires a lambda function as an input, instantiating
+        the formula with any list of free variables.
+        Note that substitue() may have an overhead (direct lambda specification
+        may be faster)
+        """
+        return substitute(formula, *((vname, value[i]) for (i, vname) in enumerate(formula_vars)))
+
+    return formula, formula_vars, lambda_model
+
+
+def _main():
+    if len(sys.argv) < 2:
+        print("Usage: %s [filename.smt2]")
+        sys.exit(0)
+
+    file_name = sys.argv[-1]
+
+    formula, var, lambda_model = _load_smt(file_name)
+
+    start = time.perf_counter()
+    result = mondec_veanes(lambda_model, var)
+    end = time.perf_counter()
+
+    if "-q" not in sys.argv:
+        print("Res: %r" % result)
+
+    print(f"R: ✓ Successfully decomposed (time: {end - start}s size: {len(result.sexpr())})")
+
+
+if __name__ == '__main__':
+    _main()
