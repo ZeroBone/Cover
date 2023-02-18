@@ -1,0 +1,10 @@
+(set-info :smt-lib-version 2.6)
+(set-info :category "random")
+(set-info :status sat)
+(declare-fun x () Real)
+(declare-fun y () Real)
+(assert 
+	(and (>= x 0.) (>= y 0.) (>= 2. x) (>= 2. y))
+)
+(check-sat)
+(exit)

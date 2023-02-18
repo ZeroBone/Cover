@@ -1,0 +1,13 @@
+(declare-fun x () Real)
+(declare-fun y_1 () Real)
+(declare-fun y_2 () Real)
+(declare-fun y_3 () Real)
+(declare-fun y_4 () Real)
+(assert 
+(and (< (- (+ y_1 y_2 y_3 y_4) x) 0.0)
+     (> (- (+ y_1 y_2 y_3 y_4) x) -1.0)
+     (or (= y_1 0.0) (= y_1 2.0))
+     (or (= y_2 0.0) (= y_2 4.0))
+     (or (= y_3 0.0) (= y_3 8.0))
+     (or (= y_4 0.0) (= y_4 16.0)))
+)
