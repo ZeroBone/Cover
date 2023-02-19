@@ -55,6 +55,8 @@ def _cover(
     if context.debug_mode:
         _logger.debug("Model: %s", gamma_model_vec)
 
+    _logger.info("Gamma tag: %s", phi_context.model_vec_to_tag(gamma_model_vec))
+
     gamma = [
         *(ct.get_version_satisfying_model(context, gamma_model_vec) for ct in phi_context.constraints),
         *(ct.get_equality_expr(context) for ct in gamma_additional_eq_constraints)
@@ -262,6 +264,7 @@ def _cover(
         )
 
         _logger.info("Found new disjunct Omega corresponding to model %s", omega_model_vec)
+        _logger.info("Omega tag (in the original formula): %s", phi_context.model_vec_to_tag(omega_model_vec))
 
         # determine the equality constraints the disjunct containing the model satisfies
         omega_eq_constraint_indices = []

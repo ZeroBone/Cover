@@ -55,7 +55,10 @@ class ActualCoverVisualizer(CoverVisualizer):
 
     def on_cover_init_pi_complex(self, domain_eq_constraints: List[LinearConstraint], theta):
         print("Pi complex! Level: %4d Recursive call number: %4d" % (self._level, self._rec_call_number))
-        print("Gamma tag: %s Domain equality constraints: %s" % (self._gamma_tag, domain_eq_constraints))
+        print("Gamma tag: %s" % self._gamma_tag)
+        if len(domain_eq_constraints) > 0:
+            print("Domain equality constraints: %s" %
+                  [c.get_equality_expr(self._context) for c in domain_eq_constraints])
 
         assert self._level == len(domain_eq_constraints)
 

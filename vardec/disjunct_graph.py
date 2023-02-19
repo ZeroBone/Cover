@@ -69,12 +69,13 @@ class _DisjunctGroup:
             else:
                 return "<font color='%s'>%s</font>" % (color, _escape_char(label))
 
-        if len(self.disjunct_labels) <= 5:
+        if len(self.disjunct_labels) <= 2:
             return "<%s>" % "|".join(
                 _compute_disjunct_html(label, color, highlight) for highlight, label, color in self.disjunct_labels
             )
 
         columns = int(math.ceil(.6 * math.sqrt(len(self.disjunct_labels))))
+        columns = max(columns, 1)
 
         cur_label_index = 0
 
@@ -87,7 +88,7 @@ class _DisjunctGroup:
             ))
             cur_label_index += columns
 
-        return "<%s>" % "|".join(rows)
+        return "<{%s}>" % "|".join(rows)
 
 
 class _DisjunctGraphBuilder:
@@ -301,7 +302,7 @@ class _DisjunctGraphBuilder:
         g = graphviz.Digraph(
             "G",
             filename="generated_figures/group.gv",
-            graph_attr={"rankdir": "LR"},
+            graph_attr={"rankdir": "TD"},
             node_attr={
                 "shape": "record",
                 "fontname": "Courier New",
