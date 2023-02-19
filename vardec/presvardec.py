@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from inspect import isfunction, getmodule
 
+import numpy as np
 import z3
 
 import examples
@@ -59,7 +60,7 @@ def _load_formula_from_smt2(args):
 
 def _main():
     parser = argparse.ArgumentParser(
-        prog="PresVarDec",
+        prog="presvardec",
         description="Tool for deciding monadic and variable decomposition of linear real arithmetic",
         epilog="See the GitHub repository README for more information")
 
@@ -98,6 +99,10 @@ def _main():
     _logger.info("Visualization mode: %s", "enabled" if args.vis else "disabled")
     _logger.info("Using heuristics: %s", "yes" if use_heuristics else "no")
     _logger.info("Using the blast heuristic: %s", "yes" if use_blast_heuristic else "no")
+
+    # config numpy
+
+    np.set_printoptions(formatter={"object": lambda _s: "%9s" % _s})
 
     # load the formula
 

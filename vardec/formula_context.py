@@ -4,7 +4,7 @@ import numpy as np
 import z3
 
 from vardec_context import VarDecContext
-from linconstraint import predicate_to_linear_constraint
+from linear_constraint import predicate_to_linear_constraint
 from z3_utils import get_formula_predicates
 
 _logger = logging.getLogger("vardec")
@@ -27,7 +27,7 @@ class FormulaContext:
             if constraint not in self.constraints:
                 self.constraints.append(constraint)
 
-        _logger.info("Constraints:\n%s", ",\n".join((str(c) for c in self.constraints)))
+        _logger.info("Constraints:\n%s", ",\n".join(("%04d : %s" % (i, c) for i, c in enumerate(self.constraints))))
 
         # create solver for efficiently checking entailment queries
 

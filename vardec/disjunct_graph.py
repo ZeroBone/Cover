@@ -10,7 +10,7 @@ import numpy as np
 import z3
 
 from formula_context import FormulaContext
-from linconstraint import LinearConstraint
+from linear_constraint import LinearConstraint
 from gauss import compute_kernel, check_image_space_inclusion
 from vardec_context import VarDecContext
 from z3_utils import is_sat, is_valid

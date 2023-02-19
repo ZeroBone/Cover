@@ -4,7 +4,7 @@ import z3
 
 from disjunct_graph import render_disjunct_graph
 from formula_context import FormulaContext
-from linconstraint import LinearConstraint
+from linear_constraint import LinearConstraint
 from vardec_context import VarDecContext
 
 

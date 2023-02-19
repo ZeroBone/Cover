@@ -10,7 +10,7 @@ from visualizer import DummyCoverVisualizer, CoverVisualizer, Visualizer, Actual
 from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext
 from gauss import compute_kernel, compute_gen_set_of_intersection_of_mat_images
-from linconstraint import LinearConstraint
+from linear_constraint import LinearConstraint
 from z3_utils import is_sat, is_valid
 
 _logger = logging.getLogger("vardec")
