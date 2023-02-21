@@ -74,8 +74,14 @@ class _DisjunctGroup:
                 _compute_disjunct_html(label, color, highlight) for highlight, label, color in self.disjunct_labels
             )
 
-        columns = int(math.ceil(.6 * math.sqrt(len(self.disjunct_labels))))
+        columns = int(math.ceil(.8 * math.sqrt(len(self.disjunct_labels))))
         columns = max(columns, 1)
+
+        # horrible hack to make the graph more compact
+        # comment this if statement out to size all disjunct groups uniformly
+        if columns >= 6:
+            columns = int(math.ceil(1.5 * math.sqrt(len(self.disjunct_labels))))
+            columns = min(columns, len(self.disjunct_labels))
 
         cur_label_index = 0
 
@@ -215,7 +221,7 @@ class _DisjunctGraphBuilder:
 
         group.add_disjunct_label(
             self._model_vec_to_label(model_vec),
-            "green3" if disjunct_entails_phi else "red3",
+            "forestgreen" if disjunct_entails_phi else "red3",
             highlight=disjunct_entails_highlight_domain
         )
 
@@ -301,7 +307,6 @@ class _DisjunctGraphBuilder:
 
         g = graphviz.Digraph(
             "G",
-            filename="generated_figures/group.gv",
             graph_attr={"rankdir": "TD"},
             node_attr={
                 "shape": "record",
@@ -371,5 +376,6 @@ def render_disjunct_graph(
 
     g = disj_graph_builder.create_group_graph()
     g.render("%s.gv" % file_name, "generated_figures", engine="dot", format="svg")
+    g.render("%s.gv" % file_name, "generated_figures", engine="dot", format="pdf")
 
     _logger.info("Rendered disjunct graph with %d disjuncts." % disj_count)
