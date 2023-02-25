@@ -84,7 +84,7 @@ def _main():
 
     # initialize the logger
 
-    _logger.setLevel(logging.DEBUG if args.verbose else logging.INFO)
+    _logger.setLevel(logging.DEBUG if args.verbose else logging.ERROR)
 
     file_handler = logging.FileHandler(os.path.join(_resolve_base_path(), "vardec.log"), mode="w")
     file_handler.setLevel(logging.DEBUG)

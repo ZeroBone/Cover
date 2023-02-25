@@ -98,6 +98,24 @@ def get_formula_predicates(phi, /):
     return predicates_list
 
 
+def replace_strict_inequality_by_nonstrict(predicate, /):
+
+    pred_kind = predicate.decl().kind()
+
+    lhs, rhs, *_ = predicate.children()
+
+    if pred_kind == z3.Z3_OP_LT:
+        return lhs <= rhs
+
+    if pred_kind == z3.Z3_OP_GT:
+        return lhs >= rhs
+
+    if pred_kind == z3.Z3_OP_EQ:
+        return predicate
+
+    assert False, "unknown predicate type"
+
+
 def get_formula_variables(phi, /):
 
     vars_list = []

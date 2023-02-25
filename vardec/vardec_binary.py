@@ -11,7 +11,7 @@ from vardec_context import VarDecContext, block_str
 from formula_context import FormulaContext
 from gauss import compute_kernel, compute_gen_set_of_intersection_of_mat_images
 from linear_constraint import LinearConstraint
-from z3_utils import is_sat, is_valid
+from z3_utils import is_sat, is_valid, replace_strict_inequality_by_nonstrict
 
 _logger = logging.getLogger("vardec")
 
@@ -204,6 +204,12 @@ def _cover(
 
             if context.debug_mode:
                 assert phi_context.query_whether_formula_entails_phi(z3.And(*theta_expanded))
+
+            # another heuristic: try replacing strict inequalities by non-strict ones
+            theta_expanded_nonstrict = z3.And(*(replace_strict_inequality_by_nonstrict(p) for p in theta_expanded))
+
+            if phi_context.query_whether_formula_entails_phi(theta_expanded_nonstrict):
+                return theta_expanded_nonstrict
 
             return z3.And(*theta_expanded)
 
