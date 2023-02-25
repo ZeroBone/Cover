@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     output_file_name = "data/cube_w%03d_c%03d.smt2" % (width, count)
 
-    fh = open(output_file_name, "w+")
+    fh = open(output_file_name, "w")
     fh.write(solver.sexpr())
     fh.close()
 

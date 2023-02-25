@@ -46,7 +46,7 @@ def _run_benchmarks():
 
     for smt, smt_path in benchmark_smts():
 
-        phi = z3.And([f for f in smt])
+        phi = z3.simplify(z3.And([f for f in smt]))
 
         _logger.info("Testing on formula '%s'", smt_path)
 
