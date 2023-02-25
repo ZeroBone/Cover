@@ -167,9 +167,10 @@ def _main():
 
     else:
         _time_start = time.perf_counter()
-        is_decomposable = vardec(phi, pi)
+        _result = vardec(phi, pi)
         vardec_time = time.perf_counter() - _time_start
-        decomposition = None
+        is_decomposable = _result.is_decomposable
+        decomposition = _result.decomposition
         context = None
 
     _logger.info(("=" * 20) + " [RESULT] " + ("=" * 20))

@@ -140,11 +140,11 @@ def _load_smt(file_name):
 
 
 def run_veanes_benchmark(phi):
-    start = time.perf_counter()
+    _start = time.perf_counter()
     formula, var, lambda_model = _load_formula(phi)
     result = mondec_veanes(lambda_model, var)
-    end = time.perf_counter()
-    return end - start, len(result.sexpr())
+    _end = time.perf_counter()
+    return _end - _start, len(result.sexpr())
 
 
 def _main():
