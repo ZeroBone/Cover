@@ -7,6 +7,7 @@ from typing import List
 import graphviz
 import networkx as nx
 import numpy as np
+# noinspection PyPackageRequirements
 import z3
 
 from formula_context import FormulaContext

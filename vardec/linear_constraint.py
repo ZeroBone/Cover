@@ -2,7 +2,9 @@ from fractions import Fraction
 from numbers import Rational
 
 import numpy as np
+# noinspection PyPackageRequirements
 import z3 as z3
+# noinspection PyPackageRequirements
 from z3 import ExprRef, RatNumRef
 
 from vardec_context import VarDecContext

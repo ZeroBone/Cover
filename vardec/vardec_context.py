@@ -3,6 +3,7 @@ from typing import Iterable
 import itertools
 
 import numpy as np
+# noinspection PyPackageRequirements
 from z3 import z3
 
 from z3_utils import get_formula_variables

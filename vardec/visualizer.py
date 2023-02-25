@@ -1,5 +1,6 @@
 from typing import List
 
+# noinspection PyPackageRequirements
 import z3
 
 from disjunct_graph import render_disjunct_graph

@@ -1,3 +1,4 @@
+# noinspection PyPackageRequirements
 from z3 import *
 
 from z3_utils import is_valid, is_sat, is_unsat

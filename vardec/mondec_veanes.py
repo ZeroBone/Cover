@@ -1,9 +1,9 @@
 """
 Authors: Margus Veanes, Nikolaj Bjørner, Lev Nachmanson & Sergey Bereg
-This version has been slightly refactored by Anthony Widjaja Lin, Daniel Stan and Alexander Mayorov
 """
 import time
 
+# noinspection PyPackageRequirements
 from z3 import *
 
 
@@ -115,14 +115,9 @@ def test_mondec5():
     mondec_veanes(R, [x, y])
 
 
-def _load_smt(file_name):
-    """Load formula from SMT2 file"""
-    target_vector = parse_smt2_file(file_name)
+def _load_formula(phi):
 
-    # take the formulas from the file in conjunction
-    formula = z3.And([form for form in target_vector])
-
-    formula_vars = z3util.get_vars(formula)
+    formula_vars = z3util.get_vars(phi)
 
     def lambda_model(value):
         """The mondec algorithm requires a lambda function as an input, instantiating
@@ -130,9 +125,26 @@ def _load_smt(file_name):
         Note that substitue() may have an overhead (direct lambda specification
         may be faster)
         """
-        return substitute(formula, *((vname, value[i]) for (i, vname) in enumerate(formula_vars)))
+        return substitute(phi, *((vname, value[i]) for (i, vname) in enumerate(formula_vars)))
 
-    return formula, formula_vars, lambda_model
+    return phi, formula_vars, lambda_model
+
+
+def _load_smt(file_name):
+    target_vector = parse_smt2_file(file_name)
+
+    # take the formulas from the file in conjunction
+    phi = z3.And([form for form in target_vector])
+
+    return _load_formula(phi)
+
+
+def run_veanes_benchmark(phi):
+    start = time.perf_counter()
+    formula, var, lambda_model = _load_formula(phi)
+    result = mondec_veanes(lambda_model, var)
+    end = time.perf_counter()
+    return end - start, len(result.sexpr())
 
 
 def _main():
@@ -151,7 +163,7 @@ def _main():
     if "-q" not in sys.argv:
         print("Res: %r" % result)
 
-    print(f"R: ✓ Successfully decomposed (time: {end - start}s size: {len(result.sexpr())})")
+    print(f"Successfully decomposed (time: {end - start}s size: {len(result.sexpr())})")
 
 
 if __name__ == '__main__':

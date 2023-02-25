@@ -1,5 +1,6 @@
 import ctypes
 
+# noinspection PyPackageRequirements
 import z3 as z3
 
 

@@ -4,6 +4,7 @@ from fractions import Fraction
 from typing import List
 
 import numpy as np
+# noinspection PyPackageRequirements
 import z3
 
 from visualizer import DummyCoverVisualizer, CoverVisualizer, Visualizer, ActualCoverVisualizer

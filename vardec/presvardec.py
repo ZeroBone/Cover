@@ -7,6 +7,7 @@ from pathlib import Path
 from inspect import isfunction, getmodule
 
 import numpy as np
+# noinspection PyPackageRequirements
 import z3
 
 import examples

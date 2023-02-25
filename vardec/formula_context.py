@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+# noinspection PyPackageRequirements
 import z3
 
 from vardec_context import VarDecContext
