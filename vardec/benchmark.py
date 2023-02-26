@@ -40,6 +40,12 @@ def benchmark_smts():
                 _logger.warning("Could not parse benchmark file '%s'", full_file_path)
 
 
+class BenchmarkFormulaClass:
+
+    def __init__(self):
+        pass
+
+
 def _run_benchmarks():
 
     _logger.info("Benchmark started.")
@@ -47,8 +53,6 @@ def _run_benchmarks():
     for smt, smt_path in benchmark_smts():
 
         phi = z3.simplify(z3.And([f for f in smt]))
-
-        _logger.info("Testing on formula '%s'", smt_path)
 
         # run the algorithm by Veanes et al.
 
@@ -76,6 +80,8 @@ def _run_benchmarks():
             presvardec_size,
             smt_path
         )
+
+    _logger.info("Benchmarking complete!")
 
 
 if __name__ == "__main__":

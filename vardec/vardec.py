@@ -15,6 +15,9 @@ class VarDecResult:
 
 def vardec(phi, pi: Partition) -> VarDecResult:
 
+    if pi.is_unary():
+        return VarDecResult(True, phi)
+
     eq_binary_partitions = pi.get_equivalent_list_of_binary_partitions()
 
     _logger.info("List of partitions equivalent to Pi:\n%s", eq_binary_partitions)

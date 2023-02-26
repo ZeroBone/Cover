@@ -25,6 +25,9 @@ class Partition:
     def __init__(self, blocks: list, /):
         self._blocks = blocks
 
+    def is_unary(self) -> bool:
+        return len(self._blocks) == 1
+
     def is_binary_or_unary(self) -> bool:
         assert len(self._blocks) > 0
         return len(self._blocks) < 3
