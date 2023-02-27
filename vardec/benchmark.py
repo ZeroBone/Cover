@@ -2,7 +2,6 @@ import logging
 import math
 import os
 import time
-from ctypes import Union
 from operator import itemgetter
 from pathlib import Path
 from typing import Tuple
@@ -13,7 +12,7 @@ import z3 as z3
 from mondec_veanes import run_veanes_benchmark
 from partition import get_singleton_partition
 from vardec import vardec, VarDecResult
-from z3_utils import get_formula_variables
+from z3_utils import get_formula_variables, get_formula_ast_node_count
 
 _logger = logging.getLogger("benchmark")
 _logger.setLevel(logging.DEBUG)
@@ -120,15 +119,23 @@ def _run_benchmarks():
         }
 
         # run the algorithm by Veanes et al.
-        veanes_perf, veanes_size = run_veanes_benchmark(phi)
+        veanes_perf, veanes_result = run_veanes_benchmark(phi)
 
         # run our algorithm
-        presvardec_perf, result = _run_presvardec_benchmark(phi)
+        presvardec_perf, presvardec_result = _run_presvardec_benchmark(phi)
 
-        assert result.is_decomposable
+        # analyze what the Veanes et al. algorithm provided
 
-        presvardec_decomposition: Union[z3.ExprRef, None] = result.decomposition
-        presvardec_size = 0 if presvardec_decomposition is None else len(presvardec_decomposition.sexpr())
+        veanes_size = get_formula_ast_node_count(veanes_result)
+
+        # analyze what our algorithm provided
+
+        assert presvardec_result.is_decomposable
+
+        if presvardec_result.decomposition is None:
+            presvardec_size = 0
+        else:
+            presvardec_size = get_formula_ast_node_count(presvardec_result.decomposition)
 
         _logger.info(
             "[Performance & Size]: Veanes et al.: (%lf, %8d) PresVarDec: (%lf, %8d) Formula: '%s'",
@@ -139,8 +146,10 @@ def _run_benchmarks():
             smt_path
         )
 
+        prop_name_value["veanes_perf_s"] = math.ceil(veanes_perf)
         prop_name_value["veanes_perf_ms"] = math.ceil(veanes_perf * 1000)
         prop_name_value["veanes_size"] = veanes_size
+        prop_name_value["presvardec_perf_s"] = math.ceil(presvardec_perf)
         prop_name_value["presvardec_perf_ms"] = math.ceil(presvardec_perf * 1000)
         prop_name_value["presvardec_size"] = presvardec_size
 

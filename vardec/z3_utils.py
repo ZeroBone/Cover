@@ -145,3 +145,25 @@ def get_formula_variables(phi, /):
         raise TooDeepFormulaError()
 
     return vars_list
+
+
+def get_formula_ast_node_count(phi, /):
+
+    visited = set()
+
+    def ast_visitor(node):
+        for child in node.children():
+            child_wrapped = wrap_ast_ref(child)
+            if child_wrapped in visited:
+                continue
+            visited.add(child_wrapped)
+            ast_visitor(child)
+
+    visited.add(wrap_ast_ref(phi))
+
+    try:
+        ast_visitor(phi)
+    except (RecursionError, ctypes.ArgumentError):
+        raise TooDeepFormulaError()
+
+    return len(visited)

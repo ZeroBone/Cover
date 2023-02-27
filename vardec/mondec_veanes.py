@@ -144,7 +144,7 @@ def run_veanes_benchmark(phi):
     formula, var, lambda_model = _load_formula(phi)
     result = mondec_veanes(lambda_model, var)
     _end = time.perf_counter()
-    return _end - _start, len(result.sexpr())
+    return _end - _start, result
 
 
 def _main():
