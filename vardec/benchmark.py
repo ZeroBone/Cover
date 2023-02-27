@@ -1,15 +1,18 @@
 import logging
+import math
 import os
 import time
 from ctypes import Union
+from operator import itemgetter
 from pathlib import Path
+from typing import Tuple
 
 # noinspection PyPackageRequirements
 import z3 as z3
 
 from mondec_veanes import run_veanes_benchmark
 from partition import get_singleton_partition
-from vardec import vardec
+from vardec import vardec, VarDecResult
 from z3_utils import get_formula_variables
 
 _logger = logging.getLogger("benchmark")
@@ -19,6 +22,11 @@ _logger.setLevel(logging.DEBUG)
 def _resolve_benchmark_root():
     base_path = Path(__file__).parent
     return (base_path / "../benchmark/data").resolve()
+
+
+def _resolve_benchmark_results_root():
+    base_path = Path(__file__).parent
+    return (base_path / "../benchmark/results").resolve()
 
 
 def benchmark_smts():
@@ -35,37 +43,87 @@ def benchmark_smts():
                 continue
 
             try:
-                yield z3.parse_smt2_file(full_file_path), full_file_path
+                smt = z3.parse_smt2_file(full_file_path)
             except z3.Z3Exception:
                 _logger.warning("Could not parse benchmark file '%s'", full_file_path)
+                continue
+
+            phi = z3.simplify(z3.And([f for f in smt]))
+
+            yield phi, full_file_path, file
 
 
 class BenchmarkFormulaClass:
 
-    def __init__(self):
-        pass
+    def __init__(self, class_name, /):
+        self._class_name = class_name
+        self._key_ordering = None
+        self._fh = None
+
+    def add_result(self, prop_name_value):
+
+        if self._key_ordering is None:
+            self._key_ordering = sorted(prop_name_value.keys())
+            os.makedirs(_resolve_benchmark_results_root(), exist_ok=True)
+            self._fh = open(os.path.join(_resolve_benchmark_results_root(), "%s.dat" % self._class_name), "w")
+            # write the topmost row of the file
+            self._fh.write("    ".join("%18s" % k for k in self._key_ordering))
+
+        assert len(prop_name_value.keys()) == len(self._key_ordering)
+        assert self._fh is not None
+
+        self._fh.write("\n")
+        self._fh.write("    ".join("%18d" % prop_name_value[k] for k in self._key_ordering))
+
+    def export(self):
+        if self._fh is not None:
+            self._fh.close()
+
+
+def _run_presvardec_benchmark(phi) -> Tuple[float, VarDecResult]:
+    _time_start = time.perf_counter()
+    phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
+    pi = get_singleton_partition(phi_vars)
+    result = vardec(phi, pi)
+    _time_end = time.perf_counter()
+    return (_time_end - _time_start), result
 
 
 def _run_benchmarks():
 
+    benchmark_instances = sorted(benchmark_smts(), key=itemgetter(1))
+
+    _logger.info("Found following instances:\n%s", "\n".join(v[1] for v in benchmark_instances))
+
+    formula_classes = {}
+
     _logger.info("Benchmark started.")
 
-    for smt, smt_path in benchmark_smts():
+    for phi, smt_path, smt_file in benchmark_instances:
 
-        phi = z3.simplify(z3.And([f for f in smt]))
+        smt_file_components = os.path.splitext(smt_file)[0].split("_")
+        print(smt_file, smt_file_components)
+
+        if len(smt_file_components) < 2:
+            _logger.warning("Ignoring the file '%s' due to invalid naming.", smt_path)
+            continue
+
+        if smt_file_components[0] in formula_classes:
+            phi_class = formula_classes[smt_file_components[0]]
+        else:
+            phi_class = BenchmarkFormulaClass(smt_file_components[0])
+            formula_classes[smt_file_components[0]] = phi_class
+
+        prop_name_value = {
+            "".join([c for c in s if not c.isdigit()]): int("".join([c for c in s if c.isdigit()]))
+            for s in smt_file_components[1:]
+        }
 
         # run the algorithm by Veanes et al.
-
         veanes_perf, veanes_size = run_veanes_benchmark(phi)
 
         # run our algorithm
-        _time_start = time.perf_counter()
-        phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
-        pi = get_singleton_partition(phi_vars)
-        result = vardec(phi, pi)
-        _time_end = time.perf_counter()
-
-        presvardec_perf = _time_end - _time_start
+        presvardec_perf, result = _run_presvardec_benchmark(phi)
 
         assert result.is_decomposable
 
@@ -80,6 +138,16 @@ def _run_benchmarks():
             presvardec_size,
             smt_path
         )
+
+        prop_name_value["veanes_perf_ms"] = math.ceil(veanes_perf * 1000)
+        prop_name_value["veanes_size"] = veanes_size
+        prop_name_value["presvardec_perf_ms"] = math.ceil(presvardec_perf * 1000)
+        prop_name_value["presvardec_size"] = presvardec_size
+
+        phi_class.add_result(prop_name_value)
+
+    for class_name in formula_classes:
+        formula_classes[class_name].export()
 
     _logger.info("Benchmarking complete!")
 
