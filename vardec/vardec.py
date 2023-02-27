@@ -2,6 +2,7 @@ import logging
 
 from partition import Partition
 from vardec_binary import vardec_binary
+from vardec_context import VarDecContext
 
 _logger = logging.getLogger("vardec")
 
@@ -26,7 +27,8 @@ def vardec(phi, pi: Partition) -> VarDecResult:
 
     if len(eq_binary_partitions) == 1:
         x, y = eq_binary_partitions[0]
-        result = vardec_binary(phi, x, y)
+        context = VarDecContext(x, y)
+        result = vardec_binary(phi, context)
 
         if result is None:
             # the formula is not decomposable
@@ -35,7 +37,8 @@ def vardec(phi, pi: Partition) -> VarDecResult:
         return VarDecResult(True, result)
 
     for x, y in eq_binary_partitions:
-        result = vardec_binary(phi, x, y)
+        context = VarDecContext(x, y)
+        result = vardec_binary(phi, context)
 
         if result is None:
             # the formula is not decomposable

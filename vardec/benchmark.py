@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import sys
 import time
 from operator import itemgetter
 from pathlib import Path
@@ -101,7 +102,6 @@ def _run_benchmarks():
     for phi, smt_path, smt_file in benchmark_instances:
 
         smt_file_components = os.path.splitext(smt_file)[0].split("_")
-        print(smt_file, smt_file_components)
 
         if len(smt_file_components) < 2:
             _logger.warning("Ignoring the file '%s' due to invalid naming.", smt_path)
@@ -163,12 +163,21 @@ def _run_benchmarks():
 
 if __name__ == "__main__":
 
-    fh = logging.FileHandler("benchmark.log", "w")
+    # setup file handler
+    fh = logging.FileHandler(os.path.join(_resolve_benchmark_results_root(), "benchmark.log"), "w")
     fh.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter("[%(asctime)s %(levelname)7s]: %(message)s")
     fh.setFormatter(formatter)
 
     _logger.addHandler(fh)
+
+    # set up the handler responsible for console logging
+
+    stdout_fh = logging.StreamHandler(sys.stdout)
+    stdout_fh.setLevel(logging.DEBUG)
+    stdout_fh.setFormatter(formatter)
+
+    _logger.addHandler(stdout_fh)
 
     _run_benchmarks()

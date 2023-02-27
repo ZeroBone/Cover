@@ -20,7 +20,7 @@ if __name__ == "__main__":
     solver = z3.Solver()
     solver.add(z3.Or(disjuncts))
 
-    output_file_name = "data/cube_w%03d_c%03d.smt2" % (width, count)
+    output_file_name = "data/cube_width%03d_count%03d.smt2" % (width, count)
 
     fh = open(output_file_name, "w")
     fh.write(solver.sexpr())

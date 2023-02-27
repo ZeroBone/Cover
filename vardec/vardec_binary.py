@@ -498,14 +498,7 @@ def _cover(
     return decomposition
 
 
-def vardec_binary(phi, x: list, y: list, /, *, context=None, visualizer: Visualizer = None):
-
-    if len(x) == 0 or len(y) == 0:
-        # every formula is decomposable with respect to the trivial partition
-        return phi
-
-    if context is None:
-        context = VarDecContext(x, y)
+def vardec_binary(phi, context: VarDecContext, /, *, visualizer: Visualizer = None):
 
     phi_context = FormulaContext(phi, context)
 

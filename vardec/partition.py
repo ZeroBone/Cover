@@ -28,9 +28,8 @@ class Partition:
     def is_unary(self) -> bool:
         return len(self._blocks) == 1
 
-    def is_binary_or_unary(self) -> bool:
-        assert len(self._blocks) > 0
-        return len(self._blocks) < 3
+    def is_binary(self) -> bool:
+        assert len(self._blocks) == 2
 
     def get_blocks_as_variable_lists(self) -> list:
         return [sorted(b, key=str) for b in self._blocks]
@@ -39,9 +38,7 @@ class Partition:
         # we assume the partition is not unary
         assert len(self._blocks) > 1
 
-        var_count = sum(len(b) for b in self._blocks)
-
-        q = (var_count - 1).bit_length()
+        q = (len(self._blocks) - 1).bit_length()
 
         return [
             _build_binary_partition(self._blocks, lambda j: (j >> i) & 1 == 0)

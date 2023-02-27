@@ -16,6 +16,8 @@ class VarDecContext:
 
     def __init__(self, x: list, y: list, /, *,
                  debug_mode: bool = False, use_heuristics: bool = True, use_blast_heuristic: bool = True):
+        assert len(x) > 0
+        assert len(y) > 0
         self._x = x
         self._y = y
         self.debug_mode = debug_mode

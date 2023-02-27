@@ -163,7 +163,7 @@ def _main():
     if "-q" not in sys.argv:
         print("Res: %r" % result)
 
-    print(f"Successfully decomposed (time: {end - start}s size: {len(result.sexpr())})")
+    print("Successfully decomposed (time: %lf)" % (end - start))
 
 
 if __name__ == '__main__':

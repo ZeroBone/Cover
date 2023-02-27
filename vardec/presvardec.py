@@ -134,16 +134,20 @@ def _main():
     _logger.info("Partition: Pi = %s", pi)
     print("Partition: Pi = %s" % pi)
 
-    if pi.is_binary_or_unary():
+    if pi.is_unary():
+        # decomposing over a unary partition is trivial
+        _time_start = time.perf_counter()
+        context = None
+        decomposition = phi
+        is_decomposable = True
+        vardec_time = time.perf_counter() - _time_start
+    elif pi.is_binary():
 
         _blocks = pi.get_blocks_as_variable_lists()
 
-        x = _blocks[0]
-        y = [] if len(_blocks) == 1 else _blocks[1]
-
         context = VarDecContext(
-            x,
-            y,
+            _blocks[0],
+            _blocks[1],
             debug_mode=args.debug,
             use_heuristics=use_heuristics,
             use_blast_heuristic=use_blast_heuristic
@@ -155,9 +159,7 @@ def _main():
 
         decomposition = vardec_binary(
             phi,
-            x,
-            y,
-            context=context,
+            context,
             visualizer=visualizer
         )
 
