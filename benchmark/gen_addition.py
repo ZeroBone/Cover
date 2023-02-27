@@ -1,6 +1,14 @@
+import os.path
+from pathlib import Path
+
 # noinspection PyPackageRequirements
 import z3 as z3
 import sys
+
+
+def _resolve_formula_class_dir():
+    base_path = Path(__file__).parent
+    return (base_path / "data/add").resolve()
 
 
 if __name__ == "__main__":
@@ -20,7 +28,8 @@ if __name__ == "__main__":
     solver = z3.Solver()
     solver.add(phi)
 
-    output_file_name = "data/add_%03d.smt2" % n
+    os.makedirs(_resolve_formula_class_dir(), exist_ok=True)
+    output_file_name = os.path.join(_resolve_formula_class_dir(), "add_n%03d.smt2" % n)
 
     fh = open(output_file_name, "w")
     fh.write(solver.sexpr())
