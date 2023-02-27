@@ -1,0 +1,5 @@
+(declare-fun y_1 () Real)
+(declare-fun x () Real)
+(assert (and (< (- (+ y_1) x) 0.0)
+     (> (- (+ y_1) x) (- 1.0))
+     (or (= y_1 0.0) (= y_1 2.0))))

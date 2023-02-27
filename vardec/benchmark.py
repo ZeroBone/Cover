@@ -67,24 +67,24 @@ class BenchmarkFormulaClass:
             os.makedirs(_resolve_benchmark_results_root(), exist_ok=True)
             self._fh = open(os.path.join(_resolve_benchmark_results_root(), "%s.dat" % self._class_name), "w")
             # write the topmost row of the file
-            self._fh.write("    ".join("%18s" % k for k in self._key_ordering))
+            self._fh.write("    ".join("%21s" % k for k in self._key_ordering))
 
         assert len(prop_name_value.keys()) == len(self._key_ordering)
         assert self._fh is not None
 
         self._fh.write("\n")
-        self._fh.write("    ".join("%18d" % prop_name_value[k] for k in self._key_ordering))
+        self._fh.write("    ".join("%21d" % prop_name_value[k] for k in self._key_ordering))
 
     def export(self):
         if self._fh is not None:
             self._fh.close()
 
 
-def _run_presvardec_benchmark(phi) -> Tuple[float, VarDecResult]:
+def _run_presvardec_benchmark(phi, /, *, use_heuristics: bool = True) -> Tuple[float, VarDecResult]:
     _time_start = time.perf_counter()
     phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
     pi = get_singleton_partition(phi_vars)
-    result = vardec(phi, pi)
+    result = vardec(phi, pi, use_heuristics=use_heuristics)
     _time_end = time.perf_counter()
     return (_time_end - _time_start), result
 
@@ -124,6 +124,9 @@ def _run_benchmarks():
         # run our algorithm
         presvardec_perf, presvardec_result = _run_presvardec_benchmark(phi)
 
+        presvardec_perf_noheuristics, presvardec_result_noheuristics =\
+            _run_presvardec_benchmark(phi, use_heuristics=False)
+
         # analyze what the Veanes et al. algorithm provided
 
         veanes_size = get_formula_ast_node_count(veanes_result)
@@ -131,6 +134,7 @@ def _run_benchmarks():
         # analyze what our algorithm provided
 
         assert presvardec_result.is_decomposable
+        assert presvardec_result_noheuristics.is_decomposable
 
         if presvardec_result.decomposition is None:
             presvardec_size = 0
@@ -151,6 +155,8 @@ def _run_benchmarks():
         prop_name_value["veanes_size"] = veanes_size
         prop_name_value["presvardec_perf_s"] = math.ceil(presvardec_perf)
         prop_name_value["presvardec_perf_ms"] = math.ceil(presvardec_perf * 1000)
+        prop_name_value["presvardec_nh_perf_s"] = math.ceil(presvardec_perf_noheuristics)
+        prop_name_value["presvardec_nh_perf_ms"] = math.ceil(presvardec_perf_noheuristics * 1000)
         prop_name_value["presvardec_size"] = presvardec_size
 
         phi_class.add_result(prop_name_value)
