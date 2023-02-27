@@ -1,3 +1,4 @@
+import argparse
 import logging
 import math
 import os
@@ -89,11 +90,11 @@ def _run_presvardec_benchmark(phi, /, *, use_heuristics: bool = True) -> Tuple[f
     return (_time_end - _time_start), result
 
 
-def _run_benchmarks():
+def _run_benchmarks(class_name: str = None):
 
     benchmark_instances = sorted(benchmark_smts(), key=itemgetter(1))
 
-    _logger.info("Found following instances:\n%s", "\n".join(v[1] for v in benchmark_instances))
+    # _logger.info("Found following instances:\n%s", "\n".join(v[1] for v in benchmark_instances))
 
     formula_classes = {}
 
@@ -105,6 +106,9 @@ def _run_benchmarks():
 
         if len(smt_file_components) < 2:
             _logger.warning("Ignoring the file '%s' due to invalid naming.", smt_path)
+            continue
+
+        if class_name is not None and smt_file_components[0] != class_name:
             continue
 
         if smt_file_components[0] in formula_classes:
@@ -167,14 +171,13 @@ def _run_benchmarks():
     _logger.info("Benchmarking complete!")
 
 
-if __name__ == "__main__":
-
+def _main():
     # setup file handler
     fh = logging.FileHandler(os.path.join(_resolve_benchmark_results_root(), "benchmark.log"), "w")
     fh.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter("[%(asctime)s %(levelname)7s]: %(message)s")
-    fh.setFormatter(formatter)
+    file_formatter = logging.Formatter("[%(asctime)s %(levelname)7s]: %(message)s")
+    fh.setFormatter(file_formatter)
 
     _logger.addHandler(fh)
 
@@ -182,8 +185,32 @@ if __name__ == "__main__":
 
     stdout_fh = logging.StreamHandler(sys.stdout)
     stdout_fh.setLevel(logging.DEBUG)
-    stdout_fh.setFormatter(formatter)
+
+    stdout_formatter = logging.Formatter("[%(levelname)7s]: %(message)s")
+    stdout_fh.setFormatter(stdout_formatter)
 
     _logger.addHandler(stdout_fh)
 
-    _run_benchmarks()
+    parser = argparse.ArgumentParser(
+        prog="presvardec_benchmark",
+        description="Benchmarking tool for PresVarDec",
+        epilog="See the GitHub repository README for more information")
+
+    parser.add_argument("-name", "--name", metavar="NAME",
+                        help="name of the benchmark instance class",
+                        type=str)
+
+    args = parser.parse_args()
+
+    if args.name is None:
+        _logger.info("No class name specified. Benchmark will consider all formulae available.")
+        class_name = None
+    else:
+        class_name = args.name
+        _logger.info("Class name: '%s'", class_name)
+
+    _run_benchmarks(class_name)
+
+
+if __name__ == "__main__":
+    _main()
