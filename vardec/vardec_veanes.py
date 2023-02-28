@@ -53,12 +53,12 @@ def evaluate(m, part):
     return tuple(m.evaluate(var, True) for var in part)
 
 
-def vardec_veanes(R, variables):
-    phi = R(variables)
-    if len(variables) == 1:
+def vardec_veanes(R, partition):
+    phi = R(partition)
+    if len(partition) == 1:
         return phi
-    l = int(len(variables) / 2)
-    x, y = variables[0:l], variables[l:]
+    l = int(len(partition) / 2)
+    x, y = partition[0:l], partition[l:]
 
     def dec(nu, pi):
         if is_unsat(And(pi, phi)):

@@ -16,7 +16,7 @@ class AffineVectorSpace:
         return "%s + %s" % (self.generator, self.span)
 
 
-def rref(a: np.ndarray) -> set:
+def _rref(a: np.ndarray) -> set:
 
     x = 0
     m, n = a.shape
@@ -74,7 +74,7 @@ def compute_kernel(a: np.ndarray) -> np.ndarray:
 
     n = a.shape[1]
 
-    not_leading_columns = rref(a)
+    not_leading_columns = _rref(a)
 
     if len(not_leading_columns) == 0:
         return np.zeros((n, 1), dtype=Fraction)
