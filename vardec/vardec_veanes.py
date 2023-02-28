@@ -152,9 +152,9 @@ def _main():
             print("Partition given but not all variable set was partitionned")
             sys.exit(2)
 
-    start = time.time()
+    start = time.perf_counter()
     result = vardec_veanes(build_lambda(formula, partition), partition)
-    total = time.time() - start
+    total = time.perf_counter() - start
 
     decomposition_size = get_formula_ast_node_count(result)
 
