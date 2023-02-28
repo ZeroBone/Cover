@@ -145,13 +145,24 @@ def _run_benchmarks(class_name: str = None):
         else:
             presvardec_size = get_formula_ast_node_count(presvardec_result.decomposition)
 
+        if presvardec_result_noheuristics.decomposition is None:
+            presvardec_size_noheuristics = 0
+        else:
+            presvardec_size_noheuristics = get_formula_ast_node_count(presvardec_result_noheuristics.decomposition)
+
+        _perf_winner = "PresVarDec   " if presvardec_perf <= veanes_perf else "Veanes et al."
+
         _logger.info(
-            "[Performance & Size]: Veanes et al.: (%lf, %8d) PresVarDec: (%lf, %8d) Formula: '%s'",
+            "Winner: %s (Performance, Size): Veanes et al.: (%lf, %8d) PresVarDec: (%lf, %8d) PresVarDec (nh): (%lf, "
+            "%8d) Formula: '%s'",
+            _perf_winner,
             veanes_perf,
             veanes_size,
             presvardec_perf,
             presvardec_size,
-            smt_path
+            presvardec_perf_noheuristics,
+            presvardec_size_noheuristics,
+            smt_file
         )
 
         prop_name_value["veanes_perf_s"] = math.ceil(veanes_perf)
@@ -162,6 +173,7 @@ def _run_benchmarks(class_name: str = None):
         prop_name_value["presvardec_nh_perf_s"] = math.ceil(presvardec_perf_noheuristics)
         prop_name_value["presvardec_nh_perf_ms"] = math.ceil(presvardec_perf_noheuristics * 1000)
         prop_name_value["presvardec_size"] = presvardec_size
+        prop_name_value["presvardec_nh_size"] = presvardec_size_noheuristics
 
         phi_class.add_result(prop_name_value)
 
@@ -186,7 +198,7 @@ def _main():
     stdout_fh = logging.StreamHandler(sys.stdout)
     stdout_fh.setLevel(logging.DEBUG)
 
-    stdout_formatter = logging.Formatter("[%(levelname)7s]: %(message)s")
+    stdout_formatter = logging.Formatter("%(levelname)7s: %(message)s")
     stdout_fh.setFormatter(stdout_formatter)
 
     _logger.addHandler(stdout_fh)
