@@ -14,7 +14,7 @@ class VarDecResult:
         self.decomposition = decomposition
 
 
-def vardec(phi, pi: Partition, /, *, use_heuristics: bool = True) -> VarDecResult:
+def vardec(phi, pi: Partition, /, *, use_heuristics: bool = True, use_blast: bool = True) -> VarDecResult:
 
     if pi.is_unary():
         return VarDecResult(True, phi)
@@ -27,7 +27,7 @@ def vardec(phi, pi: Partition, /, *, use_heuristics: bool = True) -> VarDecResul
 
     if len(eq_binary_partitions) == 1:
         x, y = eq_binary_partitions[0]
-        context = VarDecContext(x, y, use_heuristics=use_heuristics)
+        context = VarDecContext(x, y, use_heuristics=use_heuristics, use_blast_heuristic=use_blast)
         result = vardec_binary(phi, context)
 
         if result is None:
@@ -37,7 +37,7 @@ def vardec(phi, pi: Partition, /, *, use_heuristics: bool = True) -> VarDecResul
         return VarDecResult(True, result)
 
     for x, y in eq_binary_partitions:
-        context = VarDecContext(x, y, use_heuristics=use_heuristics)
+        context = VarDecContext(x, y, use_heuristics=use_heuristics, use_blast_heuristic=use_blast)
         result = vardec_binary(phi, context)
 
         if result is None:

@@ -75,18 +75,35 @@ def get_formula_predicates(phi, /):
 
         node_type = node.decl().kind()
 
-        if node_type in [z3.Z3_OP_LE, z3.Z3_OP_LT, z3.Z3_OP_GE, z3.Z3_OP_GT, z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT]:
-            predicates_list.append(node)
+        _predicate_level_reached = False
+
+        if node_type in (z3.Z3_OP_LE, z3.Z3_OP_LT, z3.Z3_OP_GE, z3.Z3_OP_GT, z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
+
+            _predicate_level_reached = True
+
+            if node_type in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
+                # it may be the case that the equality or inequality is actually a Boolean equivalence or
+                # non-equivalence
+                # thus, we need to check what operators the children have
+
+                for child in node.children():
+                    if child.decl().kind() not in (z3.Z3_OP_UMINUS, z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_MUL) and\
+                            not is_uninterpreted_variable(child):
+                        # the child is indeed a Boolean operator
+                        _predicate_level_reached = False
+                        break
+
+            if _predicate_level_reached:
+                predicates_list.append(node)
+
+        if _predicate_level_reached:
+            return
 
         for child in node.children():
-
             child_wrapped = wrap_ast_ref(child)
-
             if child_wrapped in visited:
                 continue
-
             visited.add(child_wrapped)
-
             ast_visitor(child)
 
     visited.add(wrap_ast_ref(phi))

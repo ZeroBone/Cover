@@ -85,7 +85,7 @@ def _run_presvardec_benchmark(phi, /, *, use_heuristics: bool = True) -> Tuple[f
     _time_start = time.perf_counter()
     phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
     pi = get_singleton_partition(phi_vars)
-    result = vardec(phi, pi, use_heuristics=use_heuristics)
+    result = vardec(phi, pi, use_heuristics=use_heuristics, use_blast=use_heuristics)
     _time_end = time.perf_counter()
     return (_time_end - _time_start), result
 

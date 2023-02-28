@@ -1,6 +1,14 @@
+import os
+from pathlib import Path
+
 # noinspection PyPackageRequirements
 import z3 as z3
 import sys
+
+
+def _resolve_formula_class_dir():
+    base_path = Path(__file__).parent
+    return (base_path / "data/cubes").resolve()
 
 
 if __name__ == "__main__":
@@ -13,14 +21,18 @@ if __name__ == "__main__":
     disjuncts = []
     for left_bottom_corner in range(count):
         disjuncts.append(z3.And([
-            left_bottom_corner <= x, x <= (left_bottom_corner + width),
-            left_bottom_corner <= y, y <= (left_bottom_corner + width)
+            left_bottom_corner < x, x < (left_bottom_corner + width),
+            left_bottom_corner < y, y < (left_bottom_corner + width)
         ]))
 
     solver = z3.Solver()
     solver.add(z3.Or(disjuncts))
 
-    output_file_name = "data/cube_width%03d_count%03d.smt2" % (width, count)
+    os.makedirs(_resolve_formula_class_dir(), exist_ok=True)
+    output_file_name = os.path.join(
+        _resolve_formula_class_dir(),
+        "cubes_width%03d_count%03d.smt2" % (width, count)
+    )
 
     fh = open(output_file_name, "w")
     fh.write(solver.sexpr())
