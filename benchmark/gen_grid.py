@@ -8,9 +8,9 @@ import sys
 import random
 
 
-def _resolve_formula_class_dir():
+def _resolve_formula_class_dir(_suffix: str):
     base_path = Path(__file__).parent
-    return (base_path / "data/grid").resolve()
+    return (base_path / ("data/grid%s" % _suffix)).resolve()
 
 
 if __name__ == "__main__":
@@ -20,6 +20,8 @@ if __name__ == "__main__":
     dim = int(sys.argv[1])
     aligned_plane_count = int(sys.argv[2])
     nonaligned_plane_count = int(sys.argv[3])
+
+    n_dim_mode = "--ndim" in sys.argv
 
     assert dim >= 2
 
@@ -39,8 +41,15 @@ if __name__ == "__main__":
 
     nondec_plane_predicates = []
 
+    dim_absent = 1
+
     for _ in range(nonaligned_plane_count):
-        beta_var = random.randrange(dim)
+
+        if dim_absent < dim:
+            beta_var = dim_absent
+            dim_absent += 1
+        else:
+            beta_var = random.randrange(1, dim)
 
         alpha = Fraction(
             random.randrange(10000),
@@ -69,10 +78,12 @@ if __name__ == "__main__":
         *nondec_plane_predicates
     ))
 
-    os.makedirs(_resolve_formula_class_dir(), exist_ok=True)
+    _suffix = "ndim" if n_dim_mode else ""
+
+    os.makedirs(_resolve_formula_class_dir(_suffix), exist_ok=True)
     output_file_name = os.path.join(
-        _resolve_formula_class_dir(),
-        "grid_dim%03d_apc%03d_napc%03d.smt2" % (dim, aligned_plane_count, nonaligned_plane_count)
+        _resolve_formula_class_dir(_suffix),
+        "grid%s_dim%03d_apc%03d_napc%03d.smt2" % (_suffix, dim, aligned_plane_count, nonaligned_plane_count)
     )
 
     fh = open(output_file_name, "w")

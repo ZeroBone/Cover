@@ -16,7 +16,7 @@ from vardec import vardec
 from vardec_binary import vardec_binary
 from vardec_context import VarDecContext
 from visualizer import Visualizer
-from z3_utils import is_valid, get_formula_variables
+from z3_utils import is_valid, get_formula_variables, get_formula_ast_node_count
 
 _logger = logging.getLogger("vardec")
 
@@ -204,14 +204,17 @@ def _main():
     _logger.info("=" * 51)
 
     if decomposition is not None:
+        decomposition_size = get_formula_ast_node_count(decomposition)
         _logger.info("Variable decomposition:\n%s", decomposition)
+        _logger.info("Variable decomposition size: %d", decomposition_size)
+        print("Decomposition size (internal AST nodes): %d" % decomposition_size)
         decomposition = z3.simplify(decomposition, elim_sign_ext=False, local_ctx=True)
         _logger.info("Variable decomposition simplified:\n%s", decomposition)
 
+    print("Time: %lf" % vardec_time)
+
     if context is not None:
         context.print_stats()
-
-    print("Time: %lf" % vardec_time)
 
 
 if __name__ == '__main__':
