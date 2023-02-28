@@ -71,45 +71,40 @@ def get_formula_predicates(phi, /):
     predicates_list = []
     visited = set()
 
-    def ast_visitor(node):
+    def _ast_visitor(node):
 
         node_type = node.decl().kind()
 
-        _predicate_level_reached = False
+        node_is_predicate = False
 
-        if node_type in (z3.Z3_OP_LE, z3.Z3_OP_LT, z3.Z3_OP_GE, z3.Z3_OP_GT, z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
+        if node_type in {z3.Z3_OP_LE, z3.Z3_OP_LT, z3.Z3_OP_GE, z3.Z3_OP_GT}:
+            node_is_predicate = True
+        elif node_type in {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT}:
+            node_is_predicate = True
+            # it may be the case that the equality or inequality is actually a Boolean equivalence or
+            # non-equivalence
+            # thus, we need to check what operators the children have
 
-            _predicate_level_reached = True
+            for child in node.children():
+                if child.decl().kind() in {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT, z3.Z3_OP_IMPLIES, z3.Z3_OP_ITE}:
+                    # the child is indeed a Boolean operator
+                    node_is_predicate = False
+                    break
 
-            if node_type in (z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT):
-                # it may be the case that the equality or inequality is actually a Boolean equivalence or
-                # non-equivalence
-                # thus, we need to check what operators the children have
-
-                for child in node.children():
-                    if child.decl().kind() not in (z3.Z3_OP_UMINUS, z3.Z3_OP_ADD, z3.Z3_OP_SUB, z3.Z3_OP_MUL) and\
-                            not is_uninterpreted_variable(child):
-                        # the child is indeed a Boolean operator
-                        _predicate_level_reached = False
-                        break
-
-            if _predicate_level_reached:
-                predicates_list.append(node)
-
-        if _predicate_level_reached:
-            return
-
-        for child in node.children():
-            child_wrapped = wrap_ast_ref(child)
-            if child_wrapped in visited:
-                continue
-            visited.add(child_wrapped)
-            ast_visitor(child)
+        if node_is_predicate:
+            predicates_list.append(node)
+        else:
+            for child in node.children():
+                child_wrapped = wrap_ast_ref(child)
+                if child_wrapped in visited:
+                    continue
+                visited.add(child_wrapped)
+                _ast_visitor(child)
 
     visited.add(wrap_ast_ref(phi))
 
     try:
-        ast_visitor(phi)
+        _ast_visitor(phi)
     except (RecursionError, ctypes.ArgumentError):
         raise TooDeepFormulaError()
 
