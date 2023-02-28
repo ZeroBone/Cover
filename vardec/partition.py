@@ -29,7 +29,7 @@ class Partition:
         return len(self._blocks) == 1
 
     def is_binary(self) -> bool:
-        assert len(self._blocks) == 2
+        return len(self._blocks) == 2
 
     def get_blocks_as_variable_lists(self) -> list:
         return [sorted(b, key=str) for b in self._blocks]
