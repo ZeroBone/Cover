@@ -8,9 +8,9 @@ import sys
 import random
 
 
-def _resolve_formula_class_dir(suffix: str = ""):
+def _resolve_formula_class_dir():
     base_path = Path(__file__).parent
-    return (base_path / ("data/grid%s" % suffix)).resolve()
+    return (base_path / "data/grid").resolve()
 
 
 if __name__ == "__main__":
@@ -20,7 +20,6 @@ if __name__ == "__main__":
     dim = int(sys.argv[1])
     aligned_plane_count = int(sys.argv[2])
     nonaligned_plane_count = int(sys.argv[3])
-    _suffix = "" if len(sys.argv) < 5 else sys.argv[4]
 
     assert dim >= 2
 
@@ -70,10 +69,10 @@ if __name__ == "__main__":
         *nondec_plane_predicates
     ))
 
-    os.makedirs(_resolve_formula_class_dir(_suffix), exist_ok=True)
+    os.makedirs(_resolve_formula_class_dir(), exist_ok=True)
     output_file_name = os.path.join(
-        _resolve_formula_class_dir(_suffix),
-        "grid%s_dim%03d_apc%03d_napc%03d.smt2" % (_suffix, dim, aligned_plane_count, nonaligned_plane_count)
+        _resolve_formula_class_dir(),
+        "grid_dim%03d_apc%03d_napc%03d.smt2" % (dim, aligned_plane_count, nonaligned_plane_count)
     )
 
     fh = open(output_file_name, "w")
