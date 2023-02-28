@@ -86,7 +86,8 @@ def get_formula_predicates(phi, /):
             # thus, we need to check what operators the children have
 
             for child in node.children():
-                if child.decl().kind() in {z3.Z3_OP_EQ, z3.Z3_OP_DISTINCT, z3.Z3_OP_IMPLIES, z3.Z3_OP_ITE}:
+                if child.decl().kind() in {z3.Z3_OP_LE, z3.Z3_OP_LT, z3.Z3_OP_GE, z3.Z3_OP_GT, z3.Z3_OP_EQ,
+                                           z3.Z3_OP_DISTINCT, z3.Z3_OP_IMPLIES, z3.Z3_OP_ITE}:
                     # the child is indeed a Boolean operator
                     node_is_predicate = False
                     break
