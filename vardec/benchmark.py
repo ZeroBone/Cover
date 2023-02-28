@@ -150,12 +150,9 @@ def _run_benchmarks(class_name: str = None):
         else:
             presvardec_size_noheuristics = get_formula_ast_node_count(presvardec_result_noheuristics.decomposition)
 
-        _perf_winner = "PresVarDec   " if presvardec_perf <= veanes_perf else "Veanes et al."
-
         _logger.info(
-            "Winner: %s (Performance, Size): Veanes et al.: (%lf, %8d) PresVarDec: (%lf, %8d) PresVarDec (nh): (%lf, "
-            "%8d) Formula: '%s'",
-            _perf_winner,
+            "(Performance, Size): Veanes et al.: (%lf, %8d) PresVarDec: (%lf, %8d) "
+            "PresVarDec (nh): (%lf, %8d) Formula: '%s'",
             veanes_perf,
             veanes_size,
             presvardec_perf,
@@ -205,7 +202,7 @@ def _main():
 
     parser = argparse.ArgumentParser(
         prog="presvardec_benchmark",
-        description="Benchmarking tool for PresVarDec",
+        description="PresVarDec's benchmarking tool",
         epilog="See the GitHub repository README for more information")
 
     parser.add_argument("-name", "--name", metavar="NAME",
