@@ -28,7 +28,7 @@ if __name__ == "__main__":
     print("Dimension: %d Aligned plane count: %d Non-aligned plane count: %d" %
           (dim, aligned_plane_count, nonaligned_plane_count))
 
-    v = z3.Reals(" ".join("x_%d" % (i + 1) for i in range(dim)))
+    v = z3.Reals("x " + " ".join("y_%d" % i for i in range(1, dim)))
 
     # generate grid
 
