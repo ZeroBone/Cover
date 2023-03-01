@@ -1,3 +1,4 @@
+import os
 from fractions import Fraction
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from z3_utils import is_sat, is_valid
 
 def _resolve_formula_class_dir():
     base_path = Path(__file__).parent
-    return (base_path / "data/spaces").resolve()
+    return (base_path / "../benchmark/data/spaces").resolve()
 
 
 def _generate_random_fraction() -> Fraction:
@@ -62,6 +63,7 @@ def _main():
 
     dim = int(sys.argv[1])
 
+    polyhedron_count = 1
     polyhedron_width = 1
     excluded_disjuncts_per_polyhedron = 10
 
@@ -73,122 +75,139 @@ def _main():
     v_x = z3.Reals(" ".join("x_%d" % (i + 1) for i in range(x_fragment)))
     v_y = z3.Reals(" ".join("y_%d" % (i + 1) for i in range(y_fragment)))
 
-    space_mat_x, ker_mat_x = _generate_space_mat(x_fragment)
-    space_mat_y, ker_mat_y = _generate_space_mat(y_fragment)
+    polyhedra = []
+    exclusions = []
 
-    coeff_x = np.transpose(ker_mat_x)[0]
-    coeff_y = np.transpose(ker_mat_y)[0]
+    for _ in range(polyhedron_count):
 
-    x_pred_coeffs = np.concatenate([
-        coeff_x,
-        coeff_y
-    ])
+        space_mat_x, ker_mat_x = _generate_space_mat(x_fragment)
+        space_mat_y, ker_mat_y = _generate_space_mat(y_fragment)
 
-    y_pred_coeffs = np.concatenate([
-        coeff_x,
-        2 * coeff_y
-    ])
+        coeff_x = np.transpose(ker_mat_x)[0]
+        coeff_y = np.transpose(ker_mat_y)[0]
 
-    print(x_pred_coeffs, y_pred_coeffs)
+        x_pred_coeffs = np.concatenate([
+            coeff_x,
+            coeff_y
+        ])
 
-    coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
-    coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
+        y_pred_coeffs = np.concatenate([
+            coeff_x,
+            2 * coeff_y
+        ])
 
-    print(coeff_x, coeff_y)
+        # print(x_pred_coeffs, y_pred_coeffs)
 
-    affine_offset = np.array([
-        64 * _generate_random_fraction() for _ in range(dim)
-    ], dtype=Fraction)
+        coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
+        coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
 
-    print("Affine offset: %s" % affine_offset)
+        # print(coeff_x, coeff_y)
 
-    # define the polyhedron using Pi-respecting predicates
-    polyhedron_def = z3.And(
-        # x
-        _coeffs_to_z3_expr(v_x, v_y, coeff_x) < np.dot(affine_offset, coeff_x) + polyhedron_width,
-        _coeffs_to_z3_expr(v_x, v_y, coeff_x) > np.dot(affine_offset, coeff_x) - polyhedron_width,
-        # y
-        _coeffs_to_z3_expr(v_x, v_y, coeff_y) < np.dot(affine_offset, coeff_y) + polyhedron_width,
-        _coeffs_to_z3_expr(v_x, v_y, coeff_y) > np.dot(affine_offset, coeff_y) - polyhedron_width
-    )
+        affine_offset = np.array([
+            64 * _generate_random_fraction() for _ in range(dim)
+        ], dtype=Fraction)
 
-    print(polyhedron_def)
+        print("Affine offset: %s" % affine_offset)
 
-    assert is_sat(polyhedron_def)
-
-    exclusion_def_pi_respecting = z3.And(
-        # x
-        _coeffs_to_z3_expr(v_x, v_y, coeff_x) == np.dot(affine_offset, coeff_x),
-        # y
-        _coeffs_to_z3_expr(v_x, v_y, coeff_y) == np.dot(affine_offset, coeff_y),
-    )
-
-    assert is_valid(z3.Implies(exclusion_def_pi_respecting, polyhedron_def))
-
-    first_exclusion = z3.And(
-        # x
-        _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) == np.dot(affine_offset, x_pred_coeffs),
-        # y
-        _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) == np.dot(affine_offset, y_pred_coeffs)
-    )
-
-    assert is_valid(first_exclusion == exclusion_def_pi_respecting)
-
-    exclusions = [first_exclusion]
-
-    # sanity check
-    x_upper_bound = np.dot(affine_offset, coeff_x + coeff_y) + 2 * polyhedron_width
-    x_lower_bound = np.dot(affine_offset, coeff_x + coeff_y) - 2 * polyhedron_width
-    y_lower_bound = np.dot(affine_offset, coeff_x) + 2 * np.dot(affine_offset, coeff_y) - 3 * polyhedron_width
-    y_upper_bound = np.dot(affine_offset, coeff_x) + 2 * np.dot(affine_offset, coeff_y) + 3 * polyhedron_width
-
-    assert is_valid(z3.Implies(
-        polyhedron_def,
-        z3.And(
+        # define the polyhedron using Pi-respecting predicates
+        polyhedron_def = z3.And(
             # x
-            _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) < x_upper_bound,
-            _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) > x_lower_bound,
+            _coeffs_to_z3_expr(v_x, v_y, coeff_x) < np.dot(affine_offset, coeff_x) + polyhedron_width,
+            _coeffs_to_z3_expr(v_x, v_y, coeff_x) > np.dot(affine_offset, coeff_x) - polyhedron_width,
             # y
-            _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) > y_lower_bound,
-            _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) < y_upper_bound
+            _coeffs_to_z3_expr(v_x, v_y, coeff_y) < np.dot(affine_offset, coeff_y) + polyhedron_width,
+            _coeffs_to_z3_expr(v_x, v_y, coeff_y) > np.dot(affine_offset, coeff_y) - polyhedron_width
         )
-    ))
 
-    # change basis
-    new_basis_x_upper_bound = np.dot(affine_offset, 2 * x_pred_coeffs - y_pred_coeffs) + polyhedron_width
-    new_basis_x_lower_bound = np.dot(affine_offset, 2 * x_pred_coeffs - y_pred_coeffs) - polyhedron_width
+        polyhedra.append(polyhedron_def)
 
-    new_basis_y_upper_bound = np.dot(affine_offset, y_pred_coeffs - x_pred_coeffs) + polyhedron_width
-    new_basis_y_lower_bound = np.dot(affine_offset, y_pred_coeffs - x_pred_coeffs) - polyhedron_width
+        print(polyhedron_def)
 
-    new_basis_x_pred_coeffs = 2 * x_pred_coeffs - y_pred_coeffs
-    new_basis_y_pred_coeffs = y_pred_coeffs - x_pred_coeffs
+        assert is_sat(polyhedron_def)
 
-    assert is_valid(polyhedron_def == z3.And(
-        # x
-        _coeffs_to_z3_expr(v_x, v_y, new_basis_x_pred_coeffs) < new_basis_x_upper_bound,
-        _coeffs_to_z3_expr(v_x, v_y, new_basis_x_pred_coeffs) > new_basis_x_lower_bound,
-        # y
-        _coeffs_to_z3_expr(v_x, v_y, new_basis_y_pred_coeffs) < new_basis_y_upper_bound,
-        _coeffs_to_z3_expr(v_x, v_y, new_basis_y_pred_coeffs) > new_basis_y_lower_bound
-    ))
+        exclusion_def_pi_respecting = z3.And(
+            # x
+            _coeffs_to_z3_expr(v_x, v_y, coeff_x) == np.dot(affine_offset, coeff_x),
+            # y
+            _coeffs_to_z3_expr(v_x, v_y, coeff_y) == np.dot(affine_offset, coeff_y),
+        )
 
-    for _ in range(excluded_disjuncts_per_polyhedron - 1):
-        pass
+        assert is_valid(z3.Implies(exclusion_def_pi_respecting, polyhedron_def))
+
+        first_exclusion = z3.And(
+            # x
+            _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) == np.dot(affine_offset, x_pred_coeffs),
+            # y
+            _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) == np.dot(affine_offset, y_pred_coeffs)
+        )
+
+        assert is_valid(first_exclusion == exclusion_def_pi_respecting)
+
+        exclusions.append(first_exclusion)
+
+        x_upper_bound = np.dot(affine_offset, x_pred_coeffs) + Fraction(1, 3) * polyhedron_width
+        x_lower_bound = np.dot(affine_offset, x_pred_coeffs) - Fraction(1, 3) * polyhedron_width
+
+        y_upper_bound = np.dot(affine_offset, y_pred_coeffs) + Fraction(1, 3) * polyhedron_width
+        y_lower_bound = np.dot(affine_offset, y_pred_coeffs) - Fraction(1, 3) * polyhedron_width
+
+        assert is_valid(z3.Implies(
+            z3.And(
+                # new x
+                _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) < x_upper_bound,
+                _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) > x_lower_bound,
+                # new y
+                _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) < y_upper_bound,
+                _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) > y_lower_bound
+            ),
+            polyhedron_def
+        ))
+
+        assert x_lower_bound < x_upper_bound
+        assert y_lower_bound < y_upper_bound
+
+        for _ in range(excluded_disjuncts_per_polyhedron - 1):
+
+            # generate a random rational between the lower bound and the upper bound
+
+            epsilon_x = Fraction(
+                random.randrange(1, 10000),
+                10000
+            )
+
+            epsilon_y = Fraction(
+                random.randrange(1, 10000),
+                10000
+            )
+
+            assert epsilon_x < Fraction(1, 1) and epsilon_y < Fraction(1, 1)
+
+            rhs_x = x_lower_bound + epsilon_x * (x_upper_bound - x_lower_bound)
+            rhs_y = y_lower_bound + epsilon_y * (y_upper_bound - y_lower_bound)
+
+            exclusion = z3.And(
+                # x
+                _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) == rhs_x,
+                # y
+                _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) == rhs_y
+            )
+
+            assert is_valid(z3.Implies(exclusion, polyhedron_def))
+
+            exclusions.append(exclusion)
 
     # generate formula
 
-    """
     solver = z3.Solver()
     solver.add(z3.And(
-        z3.Or(*grid_predicates),
-        *nondec_plane_predicates
+        z3.Or(*polyhedra),
+        z3.Not(z3.Or(*exclusions))
     ))
 
     os.makedirs(_resolve_formula_class_dir(), exist_ok=True)
     output_file_name = os.path.join(
         _resolve_formula_class_dir(),
-        "spaces_dim%03d_apc%03d_napc%03d.smt2" % (dim, aligned_plane_count, nonaligned_plane_count)
+        "spaces_dim%03d.smt2" % dim
     )
 
     fh = open(output_file_name, "w")
@@ -196,7 +215,6 @@ def _main():
     fh.close()
 
     print("Generated .smt2 file '%s'." % output_file_name)
-    """
 
 
 if __name__ == "__main__":
