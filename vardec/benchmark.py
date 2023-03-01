@@ -183,14 +183,13 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
 
         _logger.info(
             "(Performance, Size): Veanes et al.: (%lf, %8d) PresVarDec: (%lf, %8d) "
-            "PresVarDec (nh): (%lf, %8d) Formula: '%s'",
+            "PresVarDec (nh): (%lf, %8d)",
             veanes_perf,
             veanes_size,
             presvardec_perf,
             presvardec_size,
             presvardec_perf_noheuristics,
-            presvardec_size_noheuristics,
-            smt_file
+            presvardec_size_noheuristics
         )
 
         prop_name_value["veanes_perf_s"] = math.ceil(veanes_perf)
