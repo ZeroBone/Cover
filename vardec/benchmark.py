@@ -144,6 +144,7 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
         else:
             pi = get_singleton_partition(phi_vars)
 
+        _logger.info("==================== [New instance] ====================")
         _logger.info("Formula: '%s'. Partition: %s. Running the algorithm by Veanes et al...", smt_file, pi)
 
         # run the algorithm by Veanes et al.

@@ -8,7 +8,7 @@ import z3 as z3
 import sys
 import random
 
-from z3_utils import is_sat, is_valid
+from z3_utils import is_valid
 
 
 def _resolve_formula_class_dir():
@@ -23,7 +23,7 @@ def _generate_random_fraction() -> Fraction:
     if random.choice([True, False]):
         num = -num
 
-    return Fraction(num, 10)
+    return Fraction(num)
 
 
 def _generate_ker_mat(dim: int, /) -> np.ndarray:
@@ -59,11 +59,11 @@ def _main():
     np.set_printoptions(formatter={"object": lambda _s: "%9s" % _s})
 
     dim = int(sys.argv[1])
+    space_count = int(sys.argv[2])
 
-    polyhedron_count = 5
-    polyhedron_width = 1
-    excluded_disjuncts_per_polyhedron = dim
-    affine_offset_scale_factor = 10000
+    print("Dimension: %d Space count: %d" % (dim, space_count))
+
+    affine_offset_scale_factor = 10
 
     assert dim >= 2
 
@@ -73,33 +73,31 @@ def _main():
     v_x = z3.Reals(" ".join("x_%d" % (i + 1) for i in range(x_fragment)))
     v_y = z3.Reals(" ".join("y_%d" % (i + 1) for i in range(y_fragment)))
 
-    polyhedra = []
-    exclusions = []
+    disjuncts = []
 
-    ker_mat_x = _generate_ker_mat(x_fragment)
-    ker_mat_y = _generate_ker_mat(y_fragment)
+    for _ in range(space_count):
+        ker_mat_x = _generate_ker_mat(x_fragment)
+        ker_mat_y = _generate_ker_mat(y_fragment)
 
-    coeff_x = np.transpose(ker_mat_x)[0]
-    coeff_y = np.transpose(ker_mat_y)[0]
+        coeff_x = np.transpose(ker_mat_x)[0]
+        coeff_y = np.transpose(ker_mat_y)[0]
 
-    x_pred_coeffs = np.concatenate([
-        coeff_x,
-        coeff_y
-    ])
+        x_pred_coeffs = np.concatenate([
+            coeff_x,
+            coeff_y
+        ])
 
-    y_pred_coeffs = np.concatenate([
-        coeff_x,
-        2 * coeff_y
-    ])
+        y_pred_coeffs = np.concatenate([
+            coeff_x,
+            2 * coeff_y
+        ])
 
-    # print(x_pred_coeffs, y_pred_coeffs)
+        print(x_pred_coeffs, y_pred_coeffs)
 
-    coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
-    coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
+        coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
+        coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
 
-    # print(coeff_x, coeff_y)
-
-    for _ in range(polyhedron_count):
+        print(coeff_x, coeff_y)
 
         affine_offset = np.array([
             affine_offset_scale_factor * _generate_random_fraction() for _ in range(dim)
@@ -107,105 +105,33 @@ def _main():
 
         print("Affine offset: %s" % affine_offset)
 
-        # define the polyhedron using Pi-respecting predicates
-        polyhedron_def = z3.And(
-            # x
-            _coeffs_to_z3_expr(v_x, v_y, coeff_x) < np.dot(affine_offset, coeff_x) + polyhedron_width,
-            _coeffs_to_z3_expr(v_x, v_y, coeff_x) > np.dot(affine_offset, coeff_x) - polyhedron_width,
-            # y
-            _coeffs_to_z3_expr(v_x, v_y, coeff_y) < np.dot(affine_offset, coeff_y) + polyhedron_width,
-            _coeffs_to_z3_expr(v_x, v_y, coeff_y) > np.dot(affine_offset, coeff_y) - polyhedron_width
-        )
-
-        polyhedra.append(polyhedron_def)
-
-        print(polyhedron_def)
-
-        assert is_sat(polyhedron_def)
-
-        exclusion_def_pi_respecting = z3.And(
+        disjunct_pi_respecting = z3.And(
             # x
             _coeffs_to_z3_expr(v_x, v_y, coeff_x) == np.dot(affine_offset, coeff_x),
             # y
             _coeffs_to_z3_expr(v_x, v_y, coeff_y) == np.dot(affine_offset, coeff_y),
         )
 
-        assert is_valid(z3.Implies(exclusion_def_pi_respecting, polyhedron_def))
-
-        first_exclusion = z3.And(
+        disjunct = z3.And(
             # x
             _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) == np.dot(affine_offset, x_pred_coeffs),
             # y
             _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) == np.dot(affine_offset, y_pred_coeffs)
         )
 
-        assert is_valid(first_exclusion == exclusion_def_pi_respecting)
+        assert is_valid(disjunct == disjunct_pi_respecting)
 
-        exclusions.append(first_exclusion)
-
-        x_upper_bound = np.dot(affine_offset, x_pred_coeffs) + Fraction(1, 3) * polyhedron_width
-        x_lower_bound = np.dot(affine_offset, x_pred_coeffs) - Fraction(1, 3) * polyhedron_width
-
-        y_upper_bound = np.dot(affine_offset, y_pred_coeffs) + Fraction(1, 3) * polyhedron_width
-        y_lower_bound = np.dot(affine_offset, y_pred_coeffs) - Fraction(1, 3) * polyhedron_width
-
-        assert is_valid(z3.Implies(
-            z3.And(
-                # new x
-                _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) < x_upper_bound,
-                _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) > x_lower_bound,
-                # new y
-                _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) < y_upper_bound,
-                _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) > y_lower_bound
-            ),
-            polyhedron_def
-        ))
-
-        assert x_lower_bound < x_upper_bound
-        assert y_lower_bound < y_upper_bound
-
-        for _ in range(excluded_disjuncts_per_polyhedron - 1):
-
-            # generate a random rational between the lower bound and the upper bound
-
-            epsilon_x = Fraction(
-                random.randrange(1, 1000),
-                1000
-            )
-
-            epsilon_y = Fraction(
-                random.randrange(1, 1000),
-                1000
-            )
-
-            assert epsilon_x < Fraction(1, 1) and epsilon_y < Fraction(1, 1)
-
-            rhs_x = x_lower_bound + epsilon_x * (x_upper_bound - x_lower_bound)
-            rhs_y = y_lower_bound + epsilon_y * (y_upper_bound - y_lower_bound)
-
-            exclusion = z3.And(
-                # x
-                _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) == rhs_x,
-                # y
-                _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) == rhs_y
-            )
-
-            assert is_valid(z3.Implies(exclusion, polyhedron_def))
-
-            exclusions.append(exclusion)
+        disjuncts.append(disjunct)
 
     # generate formula
 
     solver = z3.Solver()
-    solver.add(z3.And(
-        z3.Or(*polyhedra),
-        z3.Not(z3.Or(*exclusions))
-    ))
+    solver.add(z3.Or(*disjuncts))
 
     os.makedirs(_resolve_formula_class_dir(), exist_ok=True)
     output_file_name = os.path.join(
         _resolve_formula_class_dir(),
-        "spaces_dim%03d.smt2" % dim
+        "spaces_dim%03d_spaces%03d.smt2" % (dim, space_count)
     )
 
     fh = open(output_file_name, "w")
