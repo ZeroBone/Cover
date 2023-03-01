@@ -8,7 +8,6 @@ import z3 as z3
 import sys
 import random
 
-import gauss
 from z3_utils import is_sat, is_valid
 
 
@@ -27,7 +26,7 @@ def _generate_random_fraction() -> Fraction:
     return Fraction(num, 10)
 
 
-def _generate_space_mat(dim: int, /) -> np.ndarray:
+def _generate_ker_mat(dim: int, /) -> np.ndarray:
     # generate matrix whose image is of (dim - 1) dimension
 
     ker_mat = np.zeros((dim, 1), dtype=Fraction)
@@ -39,9 +38,7 @@ def _generate_space_mat(dim: int, /) -> np.ndarray:
         for d in range(dim):
             ker_mat[d][0] = _generate_random_fraction()
 
-    space_mat = gauss.compute_kernel(np.transpose(ker_mat.copy()))
-
-    return space_mat, ker_mat
+    return ker_mat
 
 
 def _coeffs_to_z3_expr(v_x, v_y, coeffs: np.ndarray, /):
@@ -58,14 +55,15 @@ def _coeffs_to_z3_expr(v_x, v_y, coeffs: np.ndarray, /):
 
 
 def _main():
-    # random.seed(0xdeadbeef)
+    random.seed(0xdeadbeef)
     np.set_printoptions(formatter={"object": lambda _s: "%9s" % _s})
 
     dim = int(sys.argv[1])
 
-    polyhedron_count = 1
+    polyhedron_count = 5
     polyhedron_width = 1
-    excluded_disjuncts_per_polyhedron = 10
+    excluded_disjuncts_per_polyhedron = dim
+    affine_offset_scale_factor = 10000
 
     assert dim >= 2
 
@@ -78,33 +76,33 @@ def _main():
     polyhedra = []
     exclusions = []
 
+    ker_mat_x = _generate_ker_mat(x_fragment)
+    ker_mat_y = _generate_ker_mat(y_fragment)
+
+    coeff_x = np.transpose(ker_mat_x)[0]
+    coeff_y = np.transpose(ker_mat_y)[0]
+
+    x_pred_coeffs = np.concatenate([
+        coeff_x,
+        coeff_y
+    ])
+
+    y_pred_coeffs = np.concatenate([
+        coeff_x,
+        2 * coeff_y
+    ])
+
+    # print(x_pred_coeffs, y_pred_coeffs)
+
+    coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
+    coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
+
+    # print(coeff_x, coeff_y)
+
     for _ in range(polyhedron_count):
 
-        space_mat_x, ker_mat_x = _generate_space_mat(x_fragment)
-        space_mat_y, ker_mat_y = _generate_space_mat(y_fragment)
-
-        coeff_x = np.transpose(ker_mat_x)[0]
-        coeff_y = np.transpose(ker_mat_y)[0]
-
-        x_pred_coeffs = np.concatenate([
-            coeff_x,
-            coeff_y
-        ])
-
-        y_pred_coeffs = np.concatenate([
-            coeff_x,
-            2 * coeff_y
-        ])
-
-        # print(x_pred_coeffs, y_pred_coeffs)
-
-        coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
-        coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
-
-        # print(coeff_x, coeff_y)
-
         affine_offset = np.array([
-            64 * _generate_random_fraction() for _ in range(dim)
+            affine_offset_scale_factor * _generate_random_fraction() for _ in range(dim)
         ], dtype=Fraction)
 
         print("Affine offset: %s" % affine_offset)
@@ -171,13 +169,13 @@ def _main():
             # generate a random rational between the lower bound and the upper bound
 
             epsilon_x = Fraction(
-                random.randrange(1, 10000),
-                10000
+                random.randrange(1, 1000),
+                1000
             )
 
             epsilon_y = Fraction(
-                random.randrange(1, 10000),
-                10000
+                random.randrange(1, 1000),
+                1000
             )
 
             assert epsilon_x < Fraction(1, 1) and epsilon_y < Fraction(1, 1)

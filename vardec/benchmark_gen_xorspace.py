@@ -8,7 +8,7 @@ import sys
 
 def _resolve_formula_class_dir():
     base_path = Path(__file__).parent
-    return (base_path / "data/xorspace").resolve()
+    return (base_path / "../benchmark/data/xorspace").resolve()
 
 
 if __name__ == "__main__":

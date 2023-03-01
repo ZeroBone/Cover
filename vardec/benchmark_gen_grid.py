@@ -10,7 +10,7 @@ import random
 
 def _resolve_formula_class_dir(_suffix: str):
     base_path = Path(__file__).parent
-    return (base_path / ("data/grid%s" % _suffix)).resolve()
+    return (base_path / ("../benchmark/data/grid%s" % _suffix)).resolve()
 
 
 if __name__ == "__main__":
