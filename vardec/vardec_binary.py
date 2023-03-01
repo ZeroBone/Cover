@@ -469,6 +469,18 @@ def _cover(
     _logger.debug("Upsilon^{<>} = %s", upsilon_lt_gt)
     _logger.debug("Upsilon^{\\neq} = %s", upsilon_neq)
 
+    if len(upsilon_neq) > 1:
+        covering = z3.Or(
+            *delta,
+            z3.And(
+                *theta,
+                *upsilon_lt_gt,
+                *(lhs != rhs for lhs, rhs in upsilon_neq)
+            )
+        )
+        if phi_context.query_whether_formula_entails_phi(covering):
+            return covering
+
     decomposition_disjuncts = []
 
     for subset_size in range(len(upsilon_neq) + 1):

@@ -144,7 +144,7 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
         else:
             pi = get_singleton_partition(phi_vars)
 
-        _logger.info("Formula: '%s'. Partition: %s", smt_file, pi)
+        _logger.info("Formula: '%s'. Partition: %s. Running the algorithm by Veanes et al...", smt_file, pi)
 
         # run the algorithm by Veanes et al.
         # we use the original implementation if possible
@@ -153,9 +153,11 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
         else:
             veanes_perf, veanes_result = run_veanes_vardec_benchmark(phi, pi)
 
+        _logger.info("Veanes et al. time: %lf Running the PresVarDec algorithm...", veanes_perf)
         # run our algorithm
         presvardec_perf, presvardec_result = _run_presvardec_benchmark(phi, pi)
 
+        _logger.info("PresVarDec time: %lf Running the PresVarDec algorithm without heuristics...", presvardec_perf)
         # run our algorithm with heuristics disabled
         presvardec_perf_noheuristics, presvardec_result_noheuristics =\
             _run_presvardec_benchmark(phi, pi, use_heuristics=False)
