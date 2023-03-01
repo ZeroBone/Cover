@@ -7,6 +7,7 @@ import argparse
 from z3 import *
 import time
 
+from partition import Partition
 from z3_utils import get_formula_ast_node_count
 
 
@@ -104,6 +105,14 @@ def build_lambda(formula, partition):
         return substitute(formula, *tuple(args))
 
     return function
+
+
+def run_veanes_vardec_benchmark(phi, pi: Partition):
+    _start = time.perf_counter()
+    partition = [tuple(b) for b in pi.get_blocks_as_variable_lists()]
+    result = vardec_veanes(build_lambda(phi, partition), partition)
+    _end = time.perf_counter()
+    return _end - _start, result
 
 
 def _main():

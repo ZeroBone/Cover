@@ -11,9 +11,10 @@ from typing import Tuple
 # noinspection PyPackageRequirements
 import z3 as z3
 
-from mondec_veanes import run_veanes_benchmark
-from partition import get_singleton_partition
+from mondec_veanes import run_veanes_mondec_benchmark
+from partition import get_singleton_partition, Partition, parse_formula_variable_partition
 from vardec import vardec, VarDecResult
+from vardec_veanes import run_veanes_vardec_benchmark
 from z3_utils import get_formula_variables, get_formula_ast_node_count
 
 _logger = logging.getLogger("benchmark")
@@ -81,16 +82,14 @@ class BenchmarkFormulaClass:
             self._fh.close()
 
 
-def _run_presvardec_benchmark(phi, /, *, use_heuristics: bool = True) -> Tuple[float, VarDecResult]:
+def _run_presvardec_benchmark(phi, pi: Partition, /, *, use_heuristics: bool = True) -> Tuple[float, VarDecResult]:
     _time_start = time.perf_counter()
-    phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
-    pi = get_singleton_partition(phi_vars)
     result = vardec(phi, pi, use_heuristics=use_heuristics, use_blast=use_heuristics)
     _time_end = time.perf_counter()
     return (_time_end - _time_start), result
 
 
-def _run_benchmarks(class_name: str = None):
+def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
 
     benchmark_instances = sorted(benchmark_smts(), key=itemgetter(1))
 
@@ -98,7 +97,7 @@ def _run_benchmarks(class_name: str = None):
 
     formula_classes = {}
 
-    _logger.info("Benchmark started.")
+    _logger.info("Benchmark started. Monadic decomposition mode: %s", "on" if mondec_mode else "off")
 
     for phi, smt_path, smt_file in benchmark_instances:
 
@@ -122,14 +121,44 @@ def _run_benchmarks(class_name: str = None):
             for s in smt_file_components[1:]
         }
 
+        phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
+
+        # compute the partition
+
+        if not mondec_mode:
+            _partition_matrix_prefix_to_index = {}
+            _partition_matrix = []
+
+            for phi_var in phi_vars:
+                phi_var_str = phi_var.decl().name()
+                prefix = phi_var_str.split("_")[0]
+                if prefix in _partition_matrix_prefix_to_index:
+                    _partition_matrix[_partition_matrix_prefix_to_index[prefix]].append(phi_var_str)
+                else:
+                    i = len(_partition_matrix_prefix_to_index)
+                    assert i == len(_partition_matrix)
+                    _partition_matrix_prefix_to_index[prefix] = i
+                    _partition_matrix.append([phi_var_str])
+
+            pi = parse_formula_variable_partition(phi_vars, _partition_matrix)
+        else:
+            pi = get_singleton_partition(phi_vars)
+
+        _logger.info("Formula: '%s'. Partition: %s", smt_file, pi)
+
         # run the algorithm by Veanes et al.
-        veanes_perf, veanes_result = run_veanes_benchmark(phi)
+        # we use the original implementation if possible
+        if pi.is_monadic():
+            veanes_perf, veanes_result = run_veanes_mondec_benchmark(phi)
+        else:
+            veanes_perf, veanes_result = run_veanes_vardec_benchmark(phi, pi)
 
         # run our algorithm
-        presvardec_perf, presvardec_result = _run_presvardec_benchmark(phi)
+        presvardec_perf, presvardec_result = _run_presvardec_benchmark(phi, pi)
 
+        # run our algorithm with heuristics disabled
         presvardec_perf_noheuristics, presvardec_result_noheuristics =\
-            _run_presvardec_benchmark(phi, use_heuristics=False)
+            _run_presvardec_benchmark(phi, pi, use_heuristics=False)
 
         # analyze what the Veanes et al. algorithm provided
 
@@ -205,9 +234,11 @@ def _main():
         description="PresVarDec's benchmarking tool",
         epilog="See the GitHub repository README for more information")
 
-    parser.add_argument("-name", "--name", metavar="NAME",
+    parser.add_argument("-n", "--name", metavar="NAME",
                         help="name of the benchmark instance class",
                         type=str)
+
+    parser.add_argument("-m", "--mondec", action="store_true", help="attempt to monadically decompose all formulas")
 
     args = parser.parse_args()
 
@@ -218,7 +249,7 @@ def _main():
         class_name = args.name
         _logger.info("Class name: '%s'", class_name)
 
-    _run_benchmarks(class_name)
+    _run_benchmarks(class_name, mondec_mode=args.mondec)
 
 
 if __name__ == "__main__":

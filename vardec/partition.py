@@ -31,6 +31,10 @@ class Partition:
     def is_binary(self) -> bool:
         return len(self._blocks) == 2
 
+    def is_monadic(self) -> bool:
+        assert all(len(b) >= 1 for b in self._blocks)
+        return all(len(b) == 1 for b in self._blocks)
+
     def get_blocks_as_variable_lists(self) -> list:
         return [sorted(b, key=str) for b in self._blocks]
 
