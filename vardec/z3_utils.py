@@ -2,6 +2,7 @@ import ctypes
 
 # noinspection PyPackageRequirements
 import z3 as z3
+from z3 import z3util
 
 
 class TooDeepFormulaError(Exception):
@@ -27,7 +28,6 @@ class AstReferenceWrapper:
 
 
 def wrap_ast_ref(node, /):
-    assert isinstance(node, z3.AstRef)
     return AstReferenceWrapper(node)
 
 
@@ -137,7 +137,7 @@ def get_formula_variables(phi, /):
 
     def ast_visitor(node):
         if is_uninterpreted_variable(node):
-            vars_list.append(wrap_ast_ref(node))
+            vars_list.append(node)
         else:
             for child in node.children():
 

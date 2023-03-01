@@ -121,7 +121,7 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
             for s in smt_file_components[1:]
         }
 
-        phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
+        phi_vars = get_formula_variables(phi)
 
         # compute the partition
 

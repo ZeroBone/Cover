@@ -122,7 +122,7 @@ def _main():
         epilog='See Monadic Decomposition, by Margus Veanes, Nikolaj Bjørner, Lev Nachmanson & Sergey Bereg (CAV 2014)')
     parser.add_argument('filename')
     parser.add_argument('-p', '--part',
-                        help="Specify part of the partition of variables. Default = one variable per part (monadic decomposition)",
+                        help="Specify part of the partition of variables. Default = singleton partition",
                         action="extend", nargs="+",
                         default=[])
     parser.add_argument('-t', '--time', action='store_true',

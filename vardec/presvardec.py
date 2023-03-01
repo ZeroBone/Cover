@@ -113,7 +113,7 @@ def _main():
     else:
         phi, pi = _load_formula_from_repl()
 
-    phi_vars = [var.unwrap() for var in get_formula_variables(phi)]
+    phi_vars = get_formula_variables(phi)
 
     # did the user specify a partition?
     # if yes, then use it

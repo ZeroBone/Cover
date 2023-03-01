@@ -97,10 +97,8 @@ class VarDecContext:
         ))
 
     def predicate_respects_pi(self, predicate) -> bool:
-        return any(
-            set(v.unwrap() for v in get_formula_variables(predicate)).issubset(set(pi_el))
-            for pi_el in (self._x, self._y)
-        )
+        pred_vars = set(get_formula_variables(predicate))
+        return pred_vars.isdisjoint(self._x) or pred_vars.isdisjoint(self._y)
 
     def predicate_lincomb_respects_pi(self, lincomb: np.ndarray, /) -> bool:
         if not np.any(self.project_vector_onto_block(lincomb, VarDecContext.X)):
