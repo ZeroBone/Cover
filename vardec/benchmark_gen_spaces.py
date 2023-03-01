@@ -27,16 +27,14 @@ def _generate_random_fraction() -> Fraction:
 
 
 def _generate_ker_mat(dim: int, /) -> np.ndarray:
-    # generate matrix whose image is of (dim - 1) dimension
 
-    ker_mat = np.zeros((dim, 1), dtype=Fraction)
+    ker_mat = np.zeros(dim, dtype=Fraction)
 
     assert not np.any(ker_mat)
 
     # fill ker_mat with random elements
-    while not np.any(ker_mat):
-        for d in range(dim):
-            ker_mat[d][0] = _generate_random_fraction()
+    for d in range(dim):
+        ker_mat[d] = _generate_random_fraction()
 
     return ker_mat
 
@@ -55,11 +53,12 @@ def _coeffs_to_z3_expr(v_x, v_y, coeffs: np.ndarray, /):
 
 
 def _main():
-    random.seed(0xdeadbeef)
     np.set_printoptions(formatter={"object": lambda _s: "%9s" % _s})
 
     dim = int(sys.argv[1])
     space_count = int(sys.argv[2])
+
+    random.seed(0xdeadbeef)
 
     print("Dimension: %d Space count: %d" % (dim, space_count))
 
@@ -76,11 +75,8 @@ def _main():
     disjuncts = []
 
     for _ in range(space_count):
-        ker_mat_x = _generate_ker_mat(x_fragment)
-        ker_mat_y = _generate_ker_mat(y_fragment)
-
-        coeff_x = np.transpose(ker_mat_x)[0]
-        coeff_y = np.transpose(ker_mat_y)[0]
+        coeff_x = _generate_ker_mat(x_fragment)
+        coeff_y = _generate_ker_mat(y_fragment)
 
         x_pred_coeffs = np.concatenate([
             coeff_x,
@@ -92,18 +88,18 @@ def _main():
             2 * coeff_y
         ])
 
-        print(x_pred_coeffs, y_pred_coeffs)
+        # print(x_pred_coeffs, y_pred_coeffs)
 
         coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
         coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
 
-        print(coeff_x, coeff_y)
+        # print(coeff_x, coeff_y)
 
         affine_offset = np.array([
             affine_offset_scale_factor * _generate_random_fraction() for _ in range(dim)
         ], dtype=Fraction)
 
-        print("Affine offset: %s" % affine_offset)
+        # print("Affine offset: %s" % affine_offset)
 
         disjunct_pi_respecting = z3.And(
             # x
