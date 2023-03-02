@@ -55,6 +55,17 @@ def benchmark_smts():
             yield phi, full_file_path, file
 
 
+def _format_result(res) -> str:
+
+    if isinstance(res, int):
+        return "%21d" % res
+
+    if isinstance(res, float):
+        return "%21lf" % res
+
+    assert False, "Unknown result type"
+
+
 class BenchmarkFormulaClass:
 
     def __init__(self, class_name, /):
@@ -75,7 +86,7 @@ class BenchmarkFormulaClass:
         assert self._fh is not None
 
         self._fh.write("\n")
-        self._fh.write("    ".join("%21d" % prop_name_value[k] for k in self._key_ordering))
+        self._fh.write("    ".join(_format_result(prop_name_value[k]) for k in self._key_ordering))
 
     def export(self):
         if self._fh is not None:
@@ -193,12 +204,12 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
             presvardec_size_noheuristics
         )
 
-        prop_name_value["veanes_perf_s"] = math.ceil(veanes_perf)
+        prop_name_value["veanes_perf_s"] = veanes_perf
         prop_name_value["veanes_perf_ms"] = math.ceil(veanes_perf * 1000)
         prop_name_value["veanes_size"] = veanes_size
-        prop_name_value["presvardec_perf_s"] = math.ceil(presvardec_perf)
+        prop_name_value["presvardec_perf_s"] = presvardec_perf
         prop_name_value["presvardec_perf_ms"] = math.ceil(presvardec_perf * 1000)
-        prop_name_value["presvardec_nh_perf_s"] = math.ceil(presvardec_perf_noheuristics)
+        prop_name_value["presvardec_nh_perf_s"] = presvardec_perf_noheuristics
         prop_name_value["presvardec_nh_perf_ms"] = math.ceil(presvardec_perf_noheuristics * 1000)
         prop_name_value["presvardec_size"] = presvardec_size
         prop_name_value["presvardec_nh_size"] = presvardec_size_noheuristics

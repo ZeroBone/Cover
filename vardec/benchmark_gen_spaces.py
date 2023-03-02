@@ -8,7 +8,8 @@ import z3 as z3
 import sys
 import random
 
-from z3_utils import is_valid
+from gauss import compute_kernel
+from z3_utils import is_valid, is_sat
 
 
 def _resolve_formula_class_dir():
@@ -90,8 +91,8 @@ def _main():
 
         # print(x_pred_coeffs, y_pred_coeffs)
 
-        coeff_x = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
-        coeff_y = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
+        coeff_x_coeffs = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
+        coeff_y_coeffs = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
 
         # print(coeff_x, coeff_y)
 
@@ -103,9 +104,9 @@ def _main():
 
         disjunct_pi_respecting = z3.And(
             # x
-            _coeffs_to_z3_expr(v_x, v_y, coeff_x) == np.dot(affine_offset, coeff_x),
+            _coeffs_to_z3_expr(v_x, v_y, coeff_x_coeffs) == np.dot(affine_offset, coeff_x_coeffs),
             # y
-            _coeffs_to_z3_expr(v_x, v_y, coeff_y) == np.dot(affine_offset, coeff_y),
+            _coeffs_to_z3_expr(v_x, v_y, coeff_y_coeffs) == np.dot(affine_offset, coeff_y_coeffs),
         )
 
         disjunct = z3.And(
@@ -117,7 +118,33 @@ def _main():
 
         assert is_valid(disjunct == disjunct_pi_respecting)
 
-        disjuncts.append(disjunct)
+        # synthesize a predicate which will create a false point
+
+        coeff_y_ker = compute_kernel(np.array([coeff_y]))
+
+        additional_y_coeffs = coeff_y_ker.T[0]
+        additional_y_coeffs = np.concatenate([np.array([1], dtype=Fraction), additional_y_coeffs])
+
+        false_disjunct = z3.And(
+            disjunct,
+            # additional
+            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) == np.dot(affine_offset, additional_y_coeffs)
+        )
+
+        assert is_sat(false_disjunct)
+        assert is_sat(z3.And(
+            disjunct,
+            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) < np.dot(affine_offset, additional_y_coeffs)
+        ))
+        assert is_sat(z3.And(
+            disjunct,
+            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) > np.dot(affine_offset, additional_y_coeffs)
+        ))
+
+        disjuncts.append(z3.And(
+            disjunct,
+            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) != np.dot(affine_offset, additional_y_coeffs)
+        ))
 
     # generate formula
 

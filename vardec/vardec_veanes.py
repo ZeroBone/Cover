@@ -108,8 +108,8 @@ def build_lambda(formula, partition):
 
 
 def run_veanes_vardec_benchmark(phi, pi: Partition):
-    _start = time.perf_counter()
     partition = [tuple(b) for b in pi.get_blocks_as_variable_lists()]
+    _start = time.perf_counter()
     result = vardec_veanes(build_lambda(phi, partition), partition)
     _end = time.perf_counter()
     return _end - _start, result
