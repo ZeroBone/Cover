@@ -68,8 +68,9 @@ def _format_result(res) -> str:
 
 class BenchmarkFormulaClass:
 
-    def __init__(self, class_name, /):
+    def __init__(self, class_name: str, result_file_suffix: str, /):
         self._class_name = class_name
+        self._result_file_suffix = result_file_suffix
         self._key_ordering = None
         self._fh = None
 
@@ -77,7 +78,9 @@ class BenchmarkFormulaClass:
 
         if self._key_ordering is None:
             self._key_ordering = sorted(prop_name_value.keys())
-            self._fh = open(os.path.join(_resolve_benchmark_results_root(), "%s.dat" % self._class_name), "w")
+            self._fh = open(os.path.join(
+                _resolve_benchmark_results_root(),
+                "%s%s.dat" % (self._class_name, self._result_file_suffix)), "w")
             # write the topmost row of the file
             self._fh.write("    ".join("%21s" % k for k in self._key_ordering))
 
@@ -124,7 +127,7 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False, fas
         if smt_file_components[0] in formula_classes:
             phi_class = formula_classes[smt_file_components[0]]
         else:
-            phi_class = BenchmarkFormulaClass(smt_file_components[0])
+            phi_class = BenchmarkFormulaClass(smt_file_components[0], "_mondec" if mondec_mode else "")
             formula_classes[smt_file_components[0]] = phi_class
 
         prop_name_value = {
