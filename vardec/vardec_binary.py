@@ -220,6 +220,7 @@ def _cover(
 
     delta = []
     upsilon_lt_gt = []
+    upsilon_all_tuples = []
     upsilon_neq = []
 
     restrict_to_not_phi = z3.Bool("_rtnp")
@@ -371,12 +372,14 @@ def _cover(
                     _logger.info("Excellent! Gamma entails the < version of the witness predicate.")
                     disjunct_solver.add(w_lhs < w_rhs)
                     upsilon_lt_gt.append(w_lhs < w_rhs)
+                    upsilon_all_tuples.append((w_lhs, w_rhs))
                     nice_predicate_found = True
                     break
                 elif is_valid(z3.Implies(z3.And(*gamma), w_lhs > w_rhs)):
                     _logger.info("Excellent! Gamma entails the > version of the witness predicate.")
                     disjunct_solver.add(w_lhs > w_rhs)
                     upsilon_lt_gt.append(w_lhs > w_rhs)
+                    upsilon_all_tuples.append((w_lhs, w_rhs))
                     nice_predicate_found = True
                     break
 
@@ -406,6 +409,7 @@ def _cover(
                 _logger.info("Gamma unfortunately entails neither the < nor the > version of the witness predicate.")
                 disjunct_solver.add(w_lhs != w_rhs)
                 upsilon_neq.append((w_lhs, w_rhs))
+                upsilon_all_tuples.append((w_lhs, w_rhs))
 
             rec_solver = z3.Solver()
             rec_solver.add(z3.And(*gamma))
@@ -448,6 +452,23 @@ def _cover(
 
         if context.use_blast_heuristic and \
                 (false_disjuncts_exhausted_in_this_iter or not false_disjuncts_exhausted):
+
+            # first try a very agressive covering
+
+            heuristic_covering = z3.Or(
+                *delta,
+                z3.And(
+                    *theta,
+                    *(lhs != rhs for lhs, rhs in upsilon_all_tuples)
+                )
+            )
+
+            if phi_context.query_whether_formula_entails_phi(heuristic_covering):
+                _logger.info("Blast heuristic success!")
+                context.stat_on_blast_heuristic_success()
+                return heuristic_covering
+
+            # try a less agressive covering
 
             heuristic_covering = z3.Or(
                 *delta,

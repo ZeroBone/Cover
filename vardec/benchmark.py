@@ -100,7 +100,7 @@ def _run_presvardec_benchmark(phi, pi: Partition, /, *, use_heuristics: bool = T
     return (_time_end - _time_start), result
 
 
-def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
+def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False, fast_mode: bool = False):
 
     benchmark_instances = sorted(benchmark_smts(), key=itemgetter(1))
 
@@ -169,10 +169,14 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
         # run our algorithm
         presvardec_perf, presvardec_result = _run_presvardec_benchmark(phi, pi)
 
-        _logger.info("PresVarDec time: %lf Running the PresVarDec algorithm without heuristics...", presvardec_perf)
-        # run our algorithm with heuristics disabled
-        presvardec_perf_noheuristics, presvardec_result_noheuristics =\
-            _run_presvardec_benchmark(phi, pi, use_heuristics=False)
+        if not fast_mode:
+            _logger.info("PresVarDec time: %lf Running the PresVarDec algorithm without heuristics...", presvardec_perf)
+            # run our algorithm with heuristics disabled
+            presvardec_perf_noheuristics, presvardec_result_noheuristics =\
+                _run_presvardec_benchmark(phi, pi, use_heuristics=False)
+        else:
+            presvardec_perf_noheuristics = 0
+            presvardec_result_noheuristics = None
 
         # analyze what the Veanes et al. algorithm provided
 
@@ -181,17 +185,21 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
         # analyze what our algorithm provided
 
         assert presvardec_result.is_decomposable
-        assert presvardec_result_noheuristics.is_decomposable
+        if presvardec_result_noheuristics is not None:
+            assert presvardec_result_noheuristics.is_decomposable
 
         if presvardec_result.decomposition is None:
             presvardec_size = 0
         else:
             presvardec_size = get_formula_ast_node_count(presvardec_result.decomposition)
 
-        if presvardec_result_noheuristics.decomposition is None:
-            presvardec_size_noheuristics = 0
+        if presvardec_result_noheuristics is not None:
+            if presvardec_result_noheuristics.decomposition is None:
+                presvardec_size_noheuristics = 0
+            else:
+                presvardec_size_noheuristics = get_formula_ast_node_count(presvardec_result_noheuristics.decomposition)
         else:
-            presvardec_size_noheuristics = get_formula_ast_node_count(presvardec_result_noheuristics.decomposition)
+            presvardec_size_noheuristics = 0
 
         _logger.info(
             "(Performance, Size): Veanes et al.: (%lf, %8d) PresVarDec: (%lf, %8d) "
@@ -209,10 +217,15 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False):
         prop_name_value["veanes_size"] = veanes_size
         prop_name_value["presvardec_perf_s"] = presvardec_perf
         prop_name_value["presvardec_perf_ms"] = math.ceil(presvardec_perf * 1000)
-        prop_name_value["presvardec_nh_perf_s"] = presvardec_perf_noheuristics
-        prop_name_value["presvardec_nh_perf_ms"] = math.ceil(presvardec_perf_noheuristics * 1000)
+
+        if not fast_mode:
+            prop_name_value["presvardec_nh_perf_s"] = presvardec_perf_noheuristics
+            prop_name_value["presvardec_nh_perf_ms"] = math.ceil(presvardec_perf_noheuristics * 1000)
+
         prop_name_value["presvardec_size"] = presvardec_size
-        prop_name_value["presvardec_nh_size"] = presvardec_size_noheuristics
+
+        if not fast_mode:
+            prop_name_value["presvardec_nh_size"] = presvardec_size_noheuristics
 
         phi_class.add_result(prop_name_value)
 
@@ -253,6 +266,8 @@ def _main():
 
     parser.add_argument("-m", "--mondec", action="store_true", help="attempt to monadically decompose all formulas")
 
+    parser.add_argument("-f", "--fast", action="store_true", help="run only PresMonDec with heuristics")
+
     args = parser.parse_args()
 
     if args.name is None:
@@ -262,7 +277,7 @@ def _main():
         class_name = args.name
         _logger.info("Class name: '%s'", class_name)
 
-    _run_benchmarks(class_name, mondec_mode=args.mondec)
+    _run_benchmarks(class_name, mondec_mode=args.mondec, fast_mode=args.fast)
 
 
 if __name__ == "__main__":

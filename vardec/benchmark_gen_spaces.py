@@ -9,7 +9,6 @@ import sys
 import random
 
 from gauss import compute_kernel
-from z3_utils import is_valid, is_sat
 
 
 def _resolve_formula_class_dir():
@@ -19,7 +18,7 @@ def _resolve_formula_class_dir():
 
 def _generate_random_fraction() -> Fraction:
 
-    num = random.randrange(1000)
+    num = random.randrange(100)
 
     if random.choice([True, False]):
         num = -num
@@ -40,15 +39,11 @@ def _generate_ker_mat(dim: int, /) -> np.ndarray:
     return ker_mat
 
 
-def _coeffs_to_z3_expr(v_x, v_y, coeffs: np.ndarray, /):
+def _coeffs_to_z3_expr(v, coeffs: np.ndarray, /):
     return z3.Sum(
         *(
             coeffs[i] * v
-            for i, v in enumerate(v_x) if coeffs[i] != 0
-        ),
-        *(
-            coeffs[i + len(v_x)] * v
-            for i, v in enumerate(v_y) if coeffs[i + len(v_x)] != 0
+            for i, v in enumerate(v) if coeffs[i] != 0
         )
     )
 
@@ -56,95 +51,41 @@ def _coeffs_to_z3_expr(v_x, v_y, coeffs: np.ndarray, /):
 def _main():
     np.set_printoptions(formatter={"object": lambda _s: "%9s" % _s})
 
-    dim = int(sys.argv[1])
-    space_count = int(sys.argv[2])
+    space_count = int(sys.argv[1])
 
     random.seed(0xdeadbeef)
 
-    print("Dimension: %d Space count: %d" % (dim, space_count))
+    print("Space count: %d" % space_count)
 
     affine_offset_scale_factor = 10
 
-    assert dim >= 2
-
-    x_fragment = dim // 2
-    y_fragment = dim - x_fragment
-
-    v_x = z3.Reals(" ".join("x_%d" % (i + 1) for i in range(x_fragment)))
-    v_y = z3.Reals(" ".join("y_%d" % (i + 1) for i in range(y_fragment)))
+    v = z3.Reals("x y_1 y_2")
 
     disjuncts = []
 
+    coeff_x = _generate_ker_mat(3)
+
+    coeff_y = _generate_ker_mat(2)
+    coeff_y_full = np.concatenate([np.array([0], dtype=Fraction), coeff_y])
+
+    coeff_y_ker = compute_kernel(np.array([coeff_y]))
+    additional_y_coeffs = np.concatenate([np.array([1], dtype=Fraction), coeff_y_ker.T[0]])
+
     for _ in range(space_count):
-        coeff_x = _generate_ker_mat(x_fragment)
-        coeff_y = _generate_ker_mat(y_fragment)
-
-        x_pred_coeffs = np.concatenate([
-            coeff_x,
-            coeff_y
-        ])
-
-        y_pred_coeffs = np.concatenate([
-            coeff_x,
-            2 * coeff_y
-        ])
-
-        # print(x_pred_coeffs, y_pred_coeffs)
-
-        coeff_x_coeffs = np.concatenate([coeff_x, np.zeros(y_fragment, dtype=Fraction)])
-        coeff_y_coeffs = np.concatenate([np.zeros(x_fragment, dtype=Fraction), coeff_y])
-
-        # print(coeff_x, coeff_y)
 
         affine_offset = np.array([
-            affine_offset_scale_factor * _generate_random_fraction() for _ in range(dim)
+            affine_offset_scale_factor * _generate_random_fraction() for _ in range(3)
         ], dtype=Fraction)
 
-        # print("Affine offset: %s" % affine_offset)
-
-        disjunct_pi_respecting = z3.And(
-            # x
-            _coeffs_to_z3_expr(v_x, v_y, coeff_x_coeffs) == np.dot(affine_offset, coeff_x_coeffs),
-            # y
-            _coeffs_to_z3_expr(v_x, v_y, coeff_y_coeffs) == np.dot(affine_offset, coeff_y_coeffs),
-        )
-
         disjunct = z3.And(
-            # x
-            _coeffs_to_z3_expr(v_x, v_y, x_pred_coeffs) == np.dot(affine_offset, x_pred_coeffs),
-            # y
-            _coeffs_to_z3_expr(v_x, v_y, y_pred_coeffs) == np.dot(affine_offset, y_pred_coeffs)
+            _coeffs_to_z3_expr(v, coeff_y_full) == np.dot(affine_offset, coeff_y_full),
+            z3.Not(z3.And(
+                _coeffs_to_z3_expr(v, additional_y_coeffs) == np.dot(affine_offset, additional_y_coeffs),
+                _coeffs_to_z3_expr(v, coeff_x) == np.dot(affine_offset, coeff_x)
+            ))
         )
 
-        assert is_valid(disjunct == disjunct_pi_respecting)
-
-        # synthesize a predicate which will create a false point
-
-        coeff_y_ker = compute_kernel(np.array([coeff_y]))
-
-        additional_y_coeffs = coeff_y_ker.T[0]
-        additional_y_coeffs = np.concatenate([np.array([1], dtype=Fraction), additional_y_coeffs])
-
-        false_disjunct = z3.And(
-            disjunct,
-            # additional
-            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) == np.dot(affine_offset, additional_y_coeffs)
-        )
-
-        assert is_sat(false_disjunct)
-        assert is_sat(z3.And(
-            disjunct,
-            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) < np.dot(affine_offset, additional_y_coeffs)
-        ))
-        assert is_sat(z3.And(
-            disjunct,
-            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) > np.dot(affine_offset, additional_y_coeffs)
-        ))
-
-        disjuncts.append(z3.And(
-            disjunct,
-            _coeffs_to_z3_expr(v_x, v_y, additional_y_coeffs) != np.dot(affine_offset, additional_y_coeffs)
-        ))
+        disjuncts.append(disjunct)
 
     # generate formula
 
@@ -154,7 +95,7 @@ def _main():
     os.makedirs(_resolve_formula_class_dir(), exist_ok=True)
     output_file_name = os.path.join(
         _resolve_formula_class_dir(),
-        "spaces_dim%03d_spaces%03d.smt2" % (dim, space_count)
+        "spaces_spaces%03d.smt2" % space_count
     )
 
     fh = open(output_file_name, "w")
