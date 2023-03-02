@@ -87,6 +87,7 @@ class BenchmarkFormulaClass:
 
         self._fh.write("\n")
         self._fh.write("    ".join(_format_result(prop_name_value[k]) for k in self._key_ordering))
+        self._fh.flush()
 
     def export(self):
         if self._fh is not None:
