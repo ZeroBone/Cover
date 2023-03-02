@@ -3,7 +3,7 @@
 source venv/bin/activate;
 
 for i in {1..200}; do
-  python vardec/benchmark_gen_add "$i";
+  python vardec/benchmark_gen_add.py "$i";
 done
 
 for i in {1..200}; do
