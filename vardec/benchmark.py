@@ -77,7 +77,6 @@ class BenchmarkFormulaClass:
 
         if self._key_ordering is None:
             self._key_ordering = sorted(prop_name_value.keys())
-            os.makedirs(_resolve_benchmark_results_root(), exist_ok=True)
             self._fh = open(os.path.join(_resolve_benchmark_results_root(), "%s.dat" % self._class_name), "w")
             # write the topmost row of the file
             self._fh.write("    ".join("%21s" % k for k in self._key_ordering))
@@ -237,6 +236,10 @@ def _run_benchmarks(class_name: str = None, /, *, mondec_mode: bool = False, fas
 
 
 def _main():
+    # make sure assumed directories exist
+    os.makedirs(_resolve_benchmark_root(), exist_ok=True)
+    os.makedirs(_resolve_benchmark_results_root(), exist_ok=True)
+
     # setup file handler
     fh = logging.FileHandler(os.path.join(_resolve_benchmark_results_root(), "benchmark.log"), "w")
     fh.setLevel(logging.DEBUG)
