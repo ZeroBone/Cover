@@ -133,3 +133,6 @@ dmypy.json
 
 # Generated figures
 generated_figures
+
+# Benchmark
+benchmark
