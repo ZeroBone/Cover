@@ -33,7 +33,7 @@ def fmla_same_profile(
     context1 : VarDecContext, context2 : VarDecContext, fmla_context : FormulaContext
 ) -> BoolRef:
     """Get fmla asserting variables in both contexts have same profile
-    That is, agree on sign of all LHS of constraints in fmla_context"""
+    That is, agree on sign of all constraints in fmla_context"""
     conjuncts = []
     for constraint in fmla_context.constraints:
         expr1 = constraint_expr(constraint, context1)
