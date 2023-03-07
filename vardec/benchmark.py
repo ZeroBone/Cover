@@ -14,6 +14,7 @@ import z3 as z3
 from mondec_veanes import run_veanes_mondec_benchmark
 from partition import get_singleton_partition, Partition, parse_formula_variable_partition
 from vardec import vardec, VarDecResult
+from vardec_matt import run_matt_vardec_benchmark
 from vardec_veanes import run_veanes_vardec_benchmark
 from z3_utils import get_formula_variables, get_formula_ast_node_count
 
